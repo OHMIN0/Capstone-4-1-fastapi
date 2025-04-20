@@ -6,7 +6,7 @@ venv/
 __pycache__/
 *.py[cod]
 
-# Uploaded files (ÀÓ½Ã ÀúÀå¼ÒÀÌ¹Ç·Î Á¦¿Ü ±ÇÀå)
+# Uploaded files (ì„ì‹œ ì €ì¥ì†Œì´ë¯€ë¡œ ì œì™¸ ê¶Œì¥)
 uploaded-files/
 
 # IDE/Editor specific

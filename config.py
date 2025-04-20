@@ -1,8 +1,8 @@
 ### config.py ###
 
-# ¾÷·ÎµåµÈ ÆÄÀÏÀ» ÀúÀåÇÒ µð·ºÅä¸® °æ·Î ¼³Á¤
-# ÇÁ·ÎÁ§Æ® ·çÆ® µð·ºÅä¸®°¡ ±âÁØ
+# ì—…ë¡œë“œëœ íŒŒì¼ì„ ì €ìž¥í•  ë””ë ‰í† ë¦¬ ê²½ë¡œ ì„¤ì •
+# í”„ë¡œì íŠ¸ ë£¨íŠ¸ ë””ë ‰í† ë¦¬ê°€ ê¸°ì¤€
 UPLOAD_DIR = "uploaded-files/"
 
-# ÇÊ¿ä¿¡ µû¶ó ´Ù¸¥ ¼³Á¤ °ªµé (¿¹: ¸ðµ¨ °æ·Î, API Å° µî)µµ ÃßÈÄ¿¡ ¿©±â¿¡ Ãß°¡
+# í•„ìš”ì— ë”°ë¼ ë‹¤ë¥¸ ì„¤ì • ê°’ë“¤ (ì˜ˆ: ëª¨ë¸ ê²½ë¡œ, API í‚¤ ë“±)ë„ ì¶”í›„ì— ì—¬ê¸°ì— ì¶”ê°€
 # MODEL_PATH = "models/my_model.h5"
