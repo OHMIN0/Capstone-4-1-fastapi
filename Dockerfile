@@ -1,33 +1,36 @@
     # Dockerfile
 
-    # 1. º£ÀÌ½º ÀÌ¹ÌÁö ¼±ÅÃ (Python 3.12 ½½¸² ¹öÀü »ç¿ë)
+    # 1. ë² ì´ìŠ¤ ì´ë¯¸ì§€ ì„ íƒ (Python 3.12 ìŠ¬ë¦¼ ë²„ì „ ì‚¬ìš©)
     FROM python:3.12-slim
 
-    # 2. ÀÛ¾÷ µğ·ºÅä¸® ¼³Á¤
+    # 2. ì‘ì—… ë””ë ‰í† ë¦¬ ì„¤ì •
     WORKDIR /app
 
-    # 3. ½Ã½ºÅÛ ÆĞÅ°Áö ¾÷µ¥ÀÌÆ® ¹× yara C ¶óÀÌºê·¯¸® ¼³Ä¡
-    # apt-get install yara °¡ libyara.so ¸¦ /usr/lib/x86_64-linux-gnu/ ¿¡ ¼³Ä¡ÇÑ´Ù°í °¡Á¤
+    # 3. ì‹œìŠ¤í…œ íŒ¨í‚¤ì§€ ì—…ë°ì´íŠ¸ ë° yara C ë¼ì´ë¸ŒëŸ¬ë¦¬ ì„¤ì¹˜
+    # apt-get install yara ê°€ libyara.so ë¥¼ /usr/lib/x86_64-linux-gnu/ ì— ì„¤ì¹˜í•œë‹¤ê³  ê°€ì •
     RUN apt-get update && \
         apt-get install -y --no-install-recommends yara && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/*
 
-    # 4. ÆÄÀÌ½ã °¡»ó È¯°æ »ı¼º ¹× È°¼ºÈ­ °æ·Î ¼³Á¤
+    # 4. íŒŒì´ì¬ ê°€ìƒ í™˜ê²½ ìƒì„± ë° í™œì„±í™” ê²½ë¡œ ì„¤ì •
     RUN python -m venv /opt/venv
     ENV PATH="/opt/venv/bin:$PATH"
 
-    # 5. <<<<< LD_LIBRARY_PATH È¯°æ º¯¼ö ¼³Á¤ Ãß°¡ >>>>>
-    # °øÀ¯ ¶óÀÌºê·¯¸® °Ë»ö °æ·Î¿¡ apt ·Î ¼³Ä¡µÈ ¶óÀÌºê·¯¸® °æ·Î¸¦ Ãß°¡
-    ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+    # 5. <<<<< libyara.so íŒŒì¼ ì§ì ‘ ë³µì‚¬ ì¶”ê°€ >>>>>
+    # apt ë¡œ ì„¤ì¹˜ëœ libyara.so íŒŒì¼ì„ venv ë‚´ë¶€ lib ê²½ë¡œë¡œ ë³µì‚¬
+    # ì›ë³¸ ê²½ë¡œëŠ” /usr/lib/x86_64-linux-gnu/libyara.so ì¼ ê°€ëŠ¥ì„±ì´ ë†’ìŒ
+    # ëŒ€ìƒ ë””ë ‰í† ë¦¬(/opt/venv/lib)ê°€ ì—†ì„ ê²½ìš° ëŒ€ë¹„í•˜ì—¬ ìƒì„±
+    RUN mkdir -p /opt/venv/lib && \
+        cp /usr/lib/x86_64-linux-gnu/libyara.so /opt/venv/lib/libyara.so
 
-    # 6. requirements.txt º¹»ç ¹× ÆÄÀÌ½ã ÆĞÅ°Áö ¼³Ä¡
+    # 6. requirements.txt ë³µì‚¬ ë° íŒŒì´ì¬ íŒ¨í‚¤ì§€ ì„¤ì¹˜
     COPY requirements.txt .
     RUN pip install --no-cache-dir -r requirements.txt
 
-    # 7. ¾ÖÇÃ¸®ÄÉÀÌ¼Ç ÄÚµå ÀüÃ¼ º¹»ç
+    # 7. ì• í”Œë¦¬ì¼€ì´ì…˜ ì½”ë“œ ì „ì²´ ë³µì‚¬
     COPY . .
 
-    # 8. ¾ÖÇÃ¸®ÄÉÀÌ¼Ç ½ÇÇà ¸í·É (Railway°¡ Á¦°øÇÏ´Â $PORT È¯°æ º¯¼ö »ç¿ë)
+    # 8. ì• í”Œë¦¬ì¼€ì´ì…˜ ì‹¤í–‰ ëª…ë ¹ (Railwayê°€ ì œê³µí•˜ëŠ” $PORT í™˜ê²½ ë³€ìˆ˜ ì‚¬ìš©)
     CMD uvicorn main:app --host 0.0.0.0 --port $PORT
     
