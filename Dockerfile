@@ -7,6 +7,7 @@
     WORKDIR /app
 
     # 3. 시스템 패키지 업데이트 및 yara C 라이브러리 설치
+    # apt-get install yara 가 libyara.so 를 /usr/lib/x86_64-linux-gnu/ 에 설치한다고 가정
     RUN apt-get update && \
         apt-get install -y --no-install-recommends yara && \
         apt-get clean && \
@@ -16,12 +17,9 @@
     RUN python -m venv /opt/venv
     ENV PATH="/opt/venv/bin:$PATH"
 
-    # 5. <<<<< 심볼릭 링크 생성 추가 >>>>>
-    # apt 로 설치된 libyara.so 의 예상 경로에서 venv 내부 lib 경로로 링크 생성
-    # 실제 설치 경로는 /usr/lib/x86_64-linux-gnu/libyara.so 일 가능성이 높음 (아니면 빌드 로그에서 확인 필요)
-    # 대상 디렉토리(/opt/venv/lib)가 없을 경우 대비하여 생성 (-p 옵션은 불필요할 수 있음)
-    RUN mkdir -p /opt/venv/lib && \
-        ln -s /usr/lib/x86_64-linux-gnu/libyara.so /opt/venv/lib/libyara.so
+    # 5. <<<<< LD_LIBRARY_PATH 환경 변수 설정 추가 >>>>>
+    # 공유 라이브러리 검색 경로에 apt 로 설치된 라이브러리 경로를 추가
+    ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 
     # 6. requirements.txt 복사 및 파이썬 패키지 설치
     COPY requirements.txt .
