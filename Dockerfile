@@ -6,10 +6,10 @@
     # 2. 작업 디렉토리 설정
     WORKDIR /app
 
-    # 3. 시스템 패키지 업데이트 및 yara C 라이브러리 설치
-    # apt-get install yara 가 libyara.so 를 /usr/lib/x86_64-linux-gnu/ 에 설치한다고 가정
+    # 3. 시스템 패키지 업데이트 및 yara C 라이브러리 + 개발 파일 설치
+    # libyara-dev 패키지에 libyara.so 가 포함되어 있을 가능성이 높음
     RUN apt-get update && \
-        apt-get install -y --no-install-recommends yara && \
+        apt-get install -y --no-install-recommends yara libyara-dev && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/*
 
@@ -17,9 +17,8 @@
     RUN python -m venv /opt/venv
     ENV PATH="/opt/venv/bin:$PATH"
 
-    # 5. <<<<< libyara.so 파일 직접 복사 추가 >>>>>
-    # apt 로 설치된 libyara.so 파일을 venv 내부 lib 경로로 복사
-    # 원본 경로는 /usr/lib/x86_64-linux-gnu/libyara.so 일 가능성이 높음
+    # 5. libyara.so 파일 직접 복사 시도
+    # libyara-dev 설치 후 /usr/lib/x86_64-linux-gnu/ 경로에 libyara.so가 생성될 것으로 기대
     # 대상 디렉토리(/opt/venv/lib)가 없을 경우 대비하여 생성
     RUN mkdir -p /opt/venv/lib && \
         cp /usr/lib/x86_64-linux-gnu/libyara.so /opt/venv/lib/libyara.so
