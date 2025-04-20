@@ -14,7 +14,7 @@
 
     # 4. 파이썬 가상 환경 생성 및 활성화 경로 설정
     RUN python -m venv /opt/venv
-    ENV PATH="/opt/venv/bin:$PATH"
+    ENV PATH="/opt/venv/bin/"
 
     # 5. <<<<< 심볼릭 링크 생성 추가 >>>>>
     # apt 로 설치된 libyara.so 의 예상 경로에서 venv 내부 lib 경로로 링크 생성
