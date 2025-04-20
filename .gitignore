@@ -1,0 +1,21 @@
+# Virtual Environment
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Uploaded files (임시 저장소이므로 제외 권장)
+uploaded-files/
+
+# IDE/Editor specific
+.vscode/
+.idea/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Secrets (if any, e.g., .env files)
+.env*
