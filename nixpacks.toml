@@ -1,0 +1,18 @@
+    # nixpacks.toml
+
+    # Setup Phase: 필요한 시스템 패키지 설치
+    [phases.setup]
+    # Debian/Ubuntu 기반 시스템에서 apt 패키지 관리자를 사용하여 'yara' 패키지를 설치합니다.
+    # 이 패키지에 libyara.so 라이브러리가 포함되어 있을 것으로 예상됩니다.
+    aptPkgs = ["yara"]
+
+    # Start Phase: 애플리케이션 시작 명령 정의
+    # Procfile 대신 여기서 시작 명령을 관리합니다.
+    [start]
+    cmd = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+
+    # 필요에 따라 다른 빌드/설치 단계 설정을 추가할 수 있습니다.
+    # 예: Python 버전 명시 등
+    # [phases.install]
+    # nixPkgs = ["...", "python312"] # Nix 패키지 관리자 사용 시
+    
