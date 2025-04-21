@@ -7,42 +7,26 @@
     WORKDIR /app
 
     # 3. 시스템 패키지 업데이트 및 yara C 라이브러리 + 빌드 도구 설치
+    # yara (C lib v4.2.3 예상), libyara-dev, build-essential, python3-dev 등 설치
     RUN apt-get update && \
         apt-get install -y --no-install-recommends yara libyara-dev build-essential python3-dev cmake libssl-dev libffi-dev && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/*
 
-    # <<<<< 진단: 설치된 YARA C 라이브러리 버전 및 파일 위치 확인 (유지) >>>>>
-    RUN echo "--- Checking installed YARA C library version and files ---" && \
-        (yara --version || echo "yara command not found or failed") && \
-        echo "--- Listing potential libyara.so locations (/usr/lib)... ---" && \
-        ls -l /usr/lib/x86_64-linux-gnu/libyara* 2>/dev/null || echo "No libyara* found in /usr/lib/x86_64-linux-gnu" && \
-        echo "--- YARA C library check complete ---"
-
     # 4. 파이썬 가상 환경 생성 및 활성화 경로 설정
     RUN python -m venv /opt/venv
     ENV PATH="/opt/venv/bin:$PATH"
 
-    # 5. libyara.so 파일 직접 복사 단계 제거!
-    # RUN echo "--- Attempting to copy libyara.so ---" && \
-    #     mkdir -p /opt/venv/lib && \
-    #     cp /usr/lib/x86_64-linux-gnu/libyara.so /opt/venv/lib/libyara.so && \
-    #     echo "--- Copy attempt finished ---"
-
-    # <<<<< 진단: 복사 후 venv 내 파일 확인 단계 제거 >>>>>
-    # RUN echo "--- Checking for libyara.so in venv ---" && \
-    #     ls -l /opt/venv/lib/libyara* 2>/dev/null || echo "No libyara* found in /opt/venv/lib" && \
-    #     echo "--- venv check complete ---"
+    # 5. <<<<< libyara.so 파일 직접 복사 (재시도) >>>>>
+    # apt 로 설치된 libyara.so 를 venv 내부 lib 경로로 복사합니다.
+    # 오류 메시지가 계속 이 경로를 언급하므로, 버전을 맞춘 상태에서 다시 시도합니다.
+    RUN mkdir -p /opt/venv/lib && \
+        cp /usr/lib/x86_64-linux-gnu/libyara.so /opt/venv/lib/libyara.so
 
     # 6. requirements.txt 복사 및 파이썬 패키지 설치
     COPY requirements.txt .
     # requirements.txt 에 yara-python==4.2.0 지정되어 있어야 함
     RUN pip install --no-cache-dir -r requirements.txt
-
-    # <<<<< 진단: 설치된 yara-python 버전 확인 (유지) >>>>>
-    RUN echo "--- Checking installed yara-python version ---" && \
-        pip show yara-python && \
-        echo "--- yara-python check complete ---"
 
     # 7. 애플리케이션 코드 전체 복사
     COPY . .
