@@ -12,7 +12,7 @@
         apt-get clean && \
         rm -rf /var/lib/apt/lists/*
 
-    # <<<<< 진단: 설치된 YARA C 라이브러리 버전 및 파일 위치 확인 >>>>>
+    # <<<<< 진단: 설치된 YARA C 라이브러리 버전 및 파일 위치 확인 (유지) >>>>>
     RUN echo "--- Checking installed YARA C library version and files ---" && \
         (yara --version || echo "yara command not found or failed") && \
         echo "--- Listing potential libyara.so locations (/usr/lib)... ---" && \
@@ -23,23 +23,23 @@
     RUN python -m venv /opt/venv
     ENV PATH="/opt/venv/bin:$PATH"
 
-    # 5. libyara.so 파일 직접 복사 시도
-    RUN echo "--- Attempting to copy libyara.so ---" && \
-        mkdir -p /opt/venv/lib && \
-        cp /usr/lib/x86_64-linux-gnu/libyara.so /opt/venv/lib/libyara.so && \
-        echo "--- Copy attempt finished ---"
+    # 5. libyara.so 파일 직접 복사 단계 제거!
+    # RUN echo "--- Attempting to copy libyara.so ---" && \
+    #     mkdir -p /opt/venv/lib && \
+    #     cp /usr/lib/x86_64-linux-gnu/libyara.so /opt/venv/lib/libyara.so && \
+    #     echo "--- Copy attempt finished ---"
 
-    # <<<<< 진단: 복사 후 venv 내 파일 확인 >>>>>
-    RUN echo "--- Checking for libyara.so in venv ---" && \
-        ls -l /opt/venv/lib/libyara* 2>/dev/null || echo "No libyara* found in /opt/venv/lib" && \
-        echo "--- venv check complete ---"
+    # <<<<< 진단: 복사 후 venv 내 파일 확인 단계 제거 >>>>>
+    # RUN echo "--- Checking for libyara.so in venv ---" && \
+    #     ls -l /opt/venv/lib/libyara* 2>/dev/null || echo "No libyara* found in /opt/venv/lib" && \
+    #     echo "--- venv check complete ---"
 
     # 6. requirements.txt 복사 및 파이썬 패키지 설치
     COPY requirements.txt .
     # requirements.txt 에 yara-python==4.2.0 지정되어 있어야 함
     RUN pip install --no-cache-dir -r requirements.txt
 
-    # <<<<< 진단: 설치된 yara-python 버전 확인 >>>>>
+    # <<<<< 진단: 설치된 yara-python 버전 확인 (유지) >>>>>
     RUN echo "--- Checking installed yara-python version ---" && \
         pip show yara-python && \
         echo "--- yara-python check complete ---"
