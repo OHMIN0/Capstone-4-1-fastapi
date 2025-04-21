@@ -7,6 +7,7 @@ import hashlib
 import pefile
 import lief
 import yara
+import time
 from signify.authenticode import SignedPEFile
 from typing import Dict, Any, List, Tuple
 from functools import lru_cache # YARA 룰 컴파일 캐싱 위해 사용

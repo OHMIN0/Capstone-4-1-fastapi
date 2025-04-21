@@ -15,7 +15,7 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# 4. YARA 소스 코드 다운로드, 컴파일 및 설치
+# 4. YARA 소스 코드 다운로드, 컴파일 및 설치 + 링커 설정 업데이트
 ENV YARA_VERSION=4.2.3
 RUN curl -L -o yara-${YARA_VERSION}.tar.gz "https://github.com/VirusTotal/yara/archive/refs/tags/v${YARA_VERSION}.tar.gz" && \
     tar -xzf yara-${YARA_VERSION}.tar.gz && \
@@ -25,19 +25,25 @@ RUN curl -L -o yara-${YARA_VERSION}.tar.gz "https://github.com/VirusTotal/yara/a
     ./configure --enable-magic --enable-dotnet --with-crypto && \
     make && \
     make install && \
-    # <<<<< 진단: make install 후 /usr/local/lib 에 libyara.so 가 있는지 확인 >>>>>
-    echo "--- Checking for compiled libyara.so in /usr/local/lib ---" && \
+    # <<<<< /usr/local/lib 경로를 링커 설정에 추가 >>>>>
+    echo "/usr/local/lib" > /etc/ld.so.conf.d/yara.conf && \
+    # <<<<< ldconfig 실행하여 링커 캐시 업데이트 >>>>>
+    ldconfig && \
+    # 설치 확인용 (선택 사항, 빌드 로그에서 확인)
+    echo "--- Checking for compiled libyara.so in /usr/local/lib after ldconfig ---" && \
     ls -l /usr/local/lib/libyara* 2>/dev/null || echo "Compiled libyara.so not found in /usr/local/lib" && \
     echo "--- Check complete ---" && \
+    # 소스 폴더 정리
     cd .. && \
-    rm -rf yara-${YARA_VERSION} && \
-    ldconfig # 설치된 라이브러리 시스템에 등록
+    rm -rf yara-${YARA_VERSION}
 
 # 5. 파이썬 가상 환경 생성 및 활성화 경로 설정
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# 6. LD_LIBRARY_PATH 환경 변수 설정 (소스 컴파일 설치 경로 추가)
+# 6. LD_LIBRARY_PATH 환경 변수 설정 (이제 불필요할 수 있으나, 안전하게 유지)
+# ldconfig 로 시스템 캐시가 업데이트되었으므로 이 설정이 없어도 동작할 수 있지만,
+# 만약을 위해 유지하는 것도 좋습니다. 또는 제거하고 테스트해볼 수도 있습니다.
 ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 # 7. requirements.txt 복사 및 파이썬 패키지 설치
