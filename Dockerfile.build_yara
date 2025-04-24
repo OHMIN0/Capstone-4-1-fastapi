@@ -1,0 +1,33 @@
+# Dockerfile.build_yara (libyara.so 추출용)
+
+# 1. 베이스 이미지 선택
+FROM python:3.12
+
+# 2. 작업 디렉토리 설정 (임시)
+WORKDIR /build
+
+# 3. 시스템 패키지 업데이트 및 YARA 컴파일에 필요한 빌드 도구 설치
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential python3-dev cmake libssl-dev libffi-dev binutils \
+        curl make automake libtool pkg-config \
+        libmagic-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# 4. YARA 소스 코드 다운로드, 컴파일 및 설치 (v4.2.3)
+ENV YARA_VERSION=4.2.3
+RUN curl -L -o yara-${YARA_VERSION}.tar.gz "https://github.com/VirusTotal/yara/archive/refs/tags/v${YARA_VERSION}.tar.gz" && \
+    tar -xzf yara-${YARA_VERSION}.tar.gz && \
+    rm yara-${YARA_VERSION}.tar.gz && \
+    cd yara-${YARA_VERSION} && \
+    ./bootstrap.sh && \
+    ./configure --enable-magic --enable-dotnet --with-crypto && \
+    make && \
+    make install && \
+    ldconfig && \
+    echo "YARA v${YARA_VERSION} compiled and installed." && \
+    # 설치된 라이브러리 확인 (로그 출력용)
+    ls -l /usr/local/lib/libyara*
+
+# 이 Dockerfile은 라이브러리 추출용이므로 CMD는 필요 없음
