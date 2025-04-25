@@ -2,37 +2,37 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>PE �뙆�씪 遺꾩꽍 �꽌鍮꾩뒪</title>
+    <title>PE 파일 분석 서비스</title>
     <style>
-        /* �쟾泥� �럹�씠吏� 湲곕낯 �뒪����씪 */
+        /* 전체 페이지 기본 스타일 */
         body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
-        /* 肄섑뀗痢좊�� 媛먯떥�뒗 而⑦뀒�씠�꼫 �뒪����씪 */
+        /* 콘텐츠를 감싸는 컨테이너 스타일 */
         .container { max-width: 600px; margin: auto; background: #f4f4f4; padding: 20px; border-radius: 8px; }
-        /* �꽦怨� 硫붿떆吏� �뒪����씪 */
+        /* 성공 메시지 스타일 */
         .message { background-color: #e7f3fe; border-left: 6px solid #2196F3; padding: 10px; margin-bottom: 15px; border-radius: 4px; }
-        /* �삤瑜� 硫붿떆吏� �뒪����씪 */
+        /* 오류 메시지 스타일 */
         .error { background-color: #ffebee; border-left: 6px solid #f44336; padding: 10px; margin-bottom: 15px; border-radius: 4px; }
-        /* �엯�젰 �븘�뱶 �씪踰� �뒪����씪 */
+        /* 입력 필드 라벨 스타일 */
         label { display: block; margin-bottom: 5px; font-weight: bold; }
-        /* �뙆�씪 �엯�젰 �븘�뱶 �뒪����씪 */
+        /* 파일 입력 필드 스타일 */
         input[type="file"] { display: block; margin-bottom: 15px; }
-        /* 踰꾪듉 湲곕낯 �뒪����씪 */
+        /* 버튼 기본 스타일 */
         button { background-color: #4CAF50; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
-        /* 踰꾪듉 �쐞�뿉 留덉슦�뒪 �삱�졇�쓣 �븣 �뒪����씪 */
+        /* 버튼 위에 마우스 올렸을 때 스타일 */
         button:hover { background-color: #45a049; }
-        /* 遺꾩꽍 寃곌낵 �쁺�뿭 �뒪����씪 */
+        /* 분석 결과 영역 스타일 */
         #resultArea { margin-top: 30px; border: 1px solid #ccc; padding: 15px; border-radius: 4px; background-color: #fff; }
-        /* 寃곌낵 �긽�꽭 �궡�슜 �몴�떆 �쁺�뿭 �뒪����씪 (肄붾뱶 釉붾줉泥섎읆 蹂댁씠寃�) */
+        /* 결과 상세 내용 표시 영역 스타일 (코드 블록처럼 보이게) */
         pre { background-color: #f0f0f0; border: 1px solid #ccc; padding: 10px; white-space: pre-wrap; word-wrap: break-word; border-radius: 4px; }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>PE �뙆�씪 �뾽濡쒕뱶 諛� 遺꾩꽍</h1>
+    <h1>PE 파일 업로드 및 분석</h1>
 
     {% if apiResponse %}
         <div id="resultArea">
-            <h2>遺꾩꽍 寃곌낵</h2>
+            <h2>분석 결과</h2>
             {% if apiResponse.success %}
                 <div class="message">
                     <strong>{{ apiResponse.message }}</strong>
@@ -43,17 +43,17 @@
                 </div>
             {% endif %} <pre>{{ apiResponse }}</pre>
             <hr>
-            <p>�깉濡쒖슫 �뙆�씪�쓣 遺꾩꽍�븯�젮硫� �븘�옒�뿉�꽌 �떎�떆 �뾽濡쒕뱶�븯�꽭�슂.</p>
+            <p>새로운 파일을 분석하려면 아래에서 다시 업로드하세요.</p>
         </div>
     {% else %}
-        <p>遺꾩꽍�븷 PE �뙆�씪�쓣 �뾽濡쒕뱶�빐二쇱꽭�슂.</p>
+        <p>분석할 PE 파일을 업로드해주세요.</p>
     {% endif %} <form method="post" action="/upload" enctype="multipart/form-data">
         <div>
-            <label for="peFile">�뾽濡쒕뱶(遺꾩꽍)�븷 PE �뙆�씪�쓣 �꽑�깮�븯�꽭�슂:</label>
+            <label for="peFile">업로드(분석)할 PE 파일을 선택하세요:</label>
             <input type="file" id="peFile" name="peFile" accept=".exe,.dll,.sys" required>
         </div>
         <div>
-            <button type="submit">�뙆�씪 �뾽濡쒕뱶 諛� 遺꾩꽍</button>
+            <button type="submit">파일 업로드 및 분석</button>
         </div>
     </form>
 
