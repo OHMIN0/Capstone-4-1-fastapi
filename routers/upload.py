@@ -7,10 +7,11 @@ import shutil
 import os
 from typing import Dict, Any
 
-# 현재 파일 기준 상위 디렉토리의 모듈 임포트
-from ..config import UPLOAD_DIR       # 설정값
-from ..utils import ensure_upload_dir_exists # 유틸리티 함수
-from ..analysis import run_analysis   # 분석 함수 (동기 함수임)
+# --- 절대 경로 임포트로 수정 ---
+# 프로젝트 루트 디렉토리에 있는 모듈들을 직접 임포트합니다.
+from config import UPLOAD_DIR       # 설정값
+from utils import ensure_upload_dir_exists # 유틸리티 함수
+from analysis import run_analysis   # 분석 함수 (동기 함수임)
 
 # APIRouter 인스턴스 생성: 이 라우터에 경로들을 등록합니다.
 router = APIRouter()
