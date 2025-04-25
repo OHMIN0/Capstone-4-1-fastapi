@@ -35,7 +35,7 @@ COPY . .
 # /app/lib 디렉토리가 COPY . . 이후에 존재한다고 가정
 RUN echo "--- Copying bundled libyara.so to /opt/venv/lib/ ---" && \
     mkdir -p /opt/venv/lib && \
-    cp /lib/libyara.so /opt/venv/lib/libyara.so && \
+    cp lib/libyara.so /opt/venv/lib/libyara.so && \
     echo "--- Copy finished. Checking file existence: ---" && \
     ls -l /opt/venv/lib/libyara.so || echo "--- File not found in /opt/venv/lib after copy! ---"
 
