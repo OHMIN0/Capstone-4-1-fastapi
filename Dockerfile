@@ -20,7 +20,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # 5. LD_LIBRARY_PATH 환경 변수 설정 (앱 내부 라이브러리 경로 - 유지)
 # /app/lib 디렉토리를 라이브러리 검색 경로에 추가
-ENV LD_LIBRARY_PATH=/app/lib:$LD_LIBRARY_PATH
+# ENV LD_LIBRARY_PATH=/app/lib:$LD_LIBRARY_PATH
 
 # 6. requirements.txt 복사 및 파이썬 패키지 설치
 COPY requirements.txt .
