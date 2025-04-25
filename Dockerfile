@@ -30,13 +30,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 7. 애플리케이션 코드 전체 복사 (lib/libyara.so 포함)
 COPY . .
 
-# 8. <<<<< libyara.so 파일을 venv/lib 로 직접 복사 >>>>>
+# 8. libyara.so 파일을 venv/lib 로 직접 복사 및 실행 권한 부여
 # yara-python 이 계속 이 경로를 참조하는 것으로 보이므로, 복사 시도
 # /app/lib 디렉토리가 COPY . . 이후에 존재한다고 가정
 RUN echo "--- Copying bundled libyara.so to /opt/venv/lib/ ---" && \
     mkdir -p /opt/venv/lib && \
-    cp lib/libyara.so /opt/venv/lib/libyara.so && \
-    echo "--- Copy finished. Checking file existence: ---" && \
+    cp /app/lib/libyara.so /opt/venv/lib/libyara.so && \
+    # <<<<< 실행 권한 추가 >>>>>
+    chmod +x /opt/venv/lib/libyara.so && \
+    echo "--- Copy and chmod finished. Checking file existence and permissions: ---" && \
     ls -l /opt/venv/lib/libyara.so || echo "--- File not found in /opt/venv/lib after copy! ---"
 
 # 9. 애플리케이션 실행 명령 (번호 조정됨)
