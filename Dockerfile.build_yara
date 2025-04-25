@@ -1,12 +1,8 @@
-# Dockerfile.build_yara (libyara.so ÃßÃâ¿ë)
-
-# 1. º£ÀÌ½º ÀÌ¹ÌÁö ¼±ÅÃ
+# Dockerfile.build_yara (libyara.so ì¶”ì¶œìš©)
+# ì‚¬ìš©í•  ì…¸ì„ ëª…ì‹œì ìœ¼ë¡œ ì§€ì • (PowerShell ëŒ€ì‹  sh ì‚¬ìš©)
 FROM python:3.12
-
-# 2. ÀÛ¾÷ µğ·ºÅä¸® ¼³Á¤ (ÀÓ½Ã)
 WORKDIR /build
-
-# 3. ½Ã½ºÅÛ ÆĞÅ°Áö ¾÷µ¥ÀÌÆ® ¹× YARA ÄÄÆÄÀÏ¿¡ ÇÊ¿äÇÑ ºôµå µµ±¸ ¼³Ä¡
+SHELL ["/bin/sh", "-c"]
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential python3-dev cmake libssl-dev libffi-dev binutils \
@@ -14,8 +10,7 @@ RUN apt-get update && \
         libmagic-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
-# 4. YARA ¼Ò½º ÄÚµå ´Ù¿î·Îµå, ÄÄÆÄÀÏ ¹× ¼³Ä¡ (v4.2.3)
+# requirements.txt ì— ëª…ì‹œí•  yara-python ë²„ì „ê³¼ ë™ì¼í•œ ë²„ì „ ì§€ì • (ì˜ˆ: 4.2.3)
 ENV YARA_VERSION=4.2.3
 RUN curl -L -o yara-${YARA_VERSION}.tar.gz "https://github.com/VirusTotal/yara/archive/refs/tags/v${YARA_VERSION}.tar.gz" && \
     tar -xzf yara-${YARA_VERSION}.tar.gz && \
@@ -27,7 +22,4 @@ RUN curl -L -o yara-${YARA_VERSION}.tar.gz "https://github.com/VirusTotal/yara/a
     make install && \
     ldconfig && \
     echo "YARA v${YARA_VERSION} compiled and installed." && \
-    # ¼³Ä¡µÈ ¶óÀÌºê·¯¸® È®ÀÎ (·Î±× Ãâ·Â¿ë)
     ls -l /usr/local/lib/libyara*
-
-# ÀÌ DockerfileÀº ¶óÀÌºê·¯¸® ÃßÃâ¿ëÀÌ¹Ç·Î CMD´Â ÇÊ¿ä ¾øÀ½

@@ -6,7 +6,7 @@ venv/
 __pycache__/
 *.py[cod]
 
-# Uploaded files (임시 저장소이므로 제외 권장)
+# Uploaded files (�엫�떆 ����옣�냼�씠誘�濡� �젣�쇅 沅뚯옣)
 uploaded-files/
 
 # IDE/Editor specific

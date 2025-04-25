@@ -1,37 +1,37 @@
     # Dockerfile
 
-    # 1. 베이스 이미지 선택 (Python 3.12 슬림 버전 사용)
+    # 1. 踰좎씠�뒪 �씠誘몄�� �꽑�깮 (Python 3.12 �뒳由� 踰꾩쟾 �궗�슜)
     FROM python:3.12-slim
 
-    # 2. 작업 디렉토리 설정
+    # 2. �옉�뾽 �뵒�젆�넗由� �꽕�젙
     WORKDIR /app
 
-    # 3. 시스템 패키지 업데이트 및 yara C 라이브러리 설치
-    # --no-install-recommends 는 불필요한 패키지 설치 방지
-    # apt-get clean 및 /var/lib/apt/lists/* 삭제는 이미지 용량 최적화
+    # 3. �떆�뒪�뀥 �뙣�궎吏� �뾽�뜲�씠�듃 諛� yara C �씪�씠釉뚮윭由� �꽕移�
+    # --no-install-recommends �뒗 遺덊븘�슂�븳 �뙣�궎吏� �꽕移� 諛⑹��
+    # apt-get clean 諛� /var/lib/apt/lists/* �궘�젣�뒗 �씠誘몄�� �슜�웾 理쒖쟻�솕
     RUN apt-get update && \
         apt-get install -y --no-install-recommends yara && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/*
 
-    # 4. 파이썬 가상 환경 생성 및 활성화 경로 설정
-    # 가상 환경을 사용하여 시스템 파이썬과 분리
+    # 4. �뙆�씠�뜫 媛��긽 �솚寃� �깮�꽦 諛� �솢�꽦�솕 寃쎈줈 �꽕�젙
+    # 媛��긽 �솚寃쎌쓣 �궗�슜�븯�뿬 �떆�뒪�뀥 �뙆�씠�뜫怨� 遺꾨━
     RUN python -m venv /opt/venv
     ENV PATH="/opt/venv/bin:$PATH"
 
-    # 5. requirements.txt 복사 및 파이썬 패키지 설치
+    # 5. requirements.txt 蹂듭궗 諛� �뙆�씠�뜫 �뙣�궎吏� �꽕移�
     COPY requirements.txt .
-    # --no-cache-dir 은 이미지 용량을 줄이는 데 도움
+    # --no-cache-dir ��� �씠誘몄�� �슜�웾�쓣 以꾩씠�뒗 �뜲 �룄���
     RUN pip install --no-cache-dir -r requirements.txt
 
-    # 6. 애플리케이션 코드 전체 복사
+    # 6. �븷�뵆由ъ���씠�뀡 肄붾뱶 �쟾泥� 蹂듭궗
     COPY . .
 
-    # 7. 애플리케이션 실행 명령 (Railway가 제공하는 $PORT 환경 변수 사용)
-    # CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"] # 고정 포트 방식 (덜 권장됨)
-    # $PORT 변수를 직접 사용하는 것이 Railway에서 권장됨
+    # 7. �븷�뵆由ъ���씠�뀡 �떎�뻾 紐낅졊 (Railway媛� �젣怨듯븯�뒗 $PORT �솚寃� 蹂��닔 �궗�슜)
+    # CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"] # 怨좎젙 �룷�듃 諛⑹떇 (�뜙 沅뚯옣�맖)
+    # $PORT 蹂��닔瑜� 吏곸젒 �궗�슜�븯�뒗 寃껋씠 Railway�뿉�꽌 沅뚯옣�맖
     CMD uvicorn main:app --host 0.0.0.0 --port $PORT
 
-    # 참고: EXPOSE 명령어는 문서화 목적이며, Railway는 $PORT로 직접 매핑합니다.
+    # 李멸퀬: EXPOSE 紐낅졊�뼱�뒗 臾몄꽌�솕 紐⑹쟻�씠硫�, Railway�뒗 $PORT濡� 吏곸젒 留ㅽ븨�빀�땲�떎.
     # EXPOSE 8080
     
