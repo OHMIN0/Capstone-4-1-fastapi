@@ -18,8 +18,8 @@ RUN apt-get update && \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# 5. LD_LIBRARY_PATH 환경 변수 설정 (앱 내부 라이브러리 경로 - 일단 유지)
-# /app/lib 경로를 라이브러리 검색 경로에 추가
+# 5. LD_LIBRARY_PATH 환경 변수 설정 (앱 내부 라이브러리 경로)
+# /app/lib 디렉토리를 라이브러리 검색 경로에 추가
 ENV LD_LIBRARY_PATH=/app/lib:$LD_LIBRARY_PATH
 
 # 6. requirements.txt 복사 및 파이썬 패키지 설치
@@ -28,18 +28,16 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 7. 애플리케이션 코드 전체 복사 (lib/libyara.so 포함)
+# 이 단계에서 로컬의 lib/libyara.so 가 /app/lib/libyara.so 로 복사됨
 COPY . .
 
-# 8. libyara.so 파일을 venv/lib 로 직접 복사 및 실행 권한 부여
-# yara-python 이 계속 이 경로를 참조하는 것으로 보이므로, 복사 시도
-# /app/lib 디렉토리가 COPY . . 이후에 존재한다고 가정
-RUN echo "--- Copying bundled libyara.so to /opt/venv/lib/ ---" && \
-    mkdir -p /opt/venv/lib && \
-    cp /app/lib/libyara.so /opt/venv/lib/libyara.so && \
-    # <<<<< 실행 권한 추가 >>>>>
-    chmod +x /opt/venv/lib/libyara.so && \
-    echo "--- Copy and chmod finished. Checking file existence and permissions: ---" && \
-    ls -l /opt/venv/lib/libyara.so || echo "--- File not found in /opt/venv/lib after copy! ---"
+# 8. libyara.so 파일을 venv/lib 로 직접 복사하는 단계 제거!
+# RUN echo "--- Copying bundled libyara.so to /opt/venv/lib/ ---" && \
+#     mkdir -p /opt/venv/lib && \
+#     cp /app/lib/libyara.so /opt/venv/lib/libyara.so && \
+#     chmod +x /opt/venv/lib/libyara.so && \
+#     echo "--- Copy and chmod finished. Checking file existence and permissions: ---" && \
+#     ls -l /opt/venv/lib/libyara.so || echo "--- File not found in /opt/venv/lib after copy! ---"
 
 # 9. 애플리케이션 실행 명령 (번호 조정됨)
 CMD uvicorn main:app --host 0.0.0.0 --port $PORT
