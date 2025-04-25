@@ -1,29 +1,28 @@
 # file_to_features.py
 
 import os
-import time
 import pandas as pd
 import datetime
 import hashlib
 import pefile
 import lief
-import yara # yara ?엫?룷?듃?뒗 ?쑀吏?
+import yara # yara 임포트는 유지
 from signify.authenticode import SignedPEFile
 from typing import Dict, Any, List, Tuple
-from functools import lru_cache # 媛꾨떒?븳 罹먯떛?쓣 ?쐞?빐 異붽??
+from functools import lru_cache # 간단한 캐싱을 위해 추가
 
-# ====== ?꽕?젙 (YARA 猷? 寃쎈줈) ======
+# ====== 설정 (YARA 룰 경로) ======
 YARA_RULES_DIR = "yara_rules"
 CAPABILITIES_RULES_FILE = os.path.join(YARA_RULES_DIR, 'capabilities.yar')
 PACKER_RULES_FILE = os.path.join(YARA_RULES_DIR, 'packer_compiler_signatures.yar')
 
-# ====== YARA 猷? 而댄뙆?씪 ?븿?닔 (罹먯떛 ?궗?슜) ======
-# ?룞?씪?븳 ?뙆?씪?쓣 諛섎났?빐?꽌 而댄뙆?씪?븯?뒗 寃껋쓣 諛⑹???븯湲? ?쐞?빐 LRU 罹먯떆 ?궗?슜
-@lru_cache(maxsize=2) # 理쒕?? 2媛? 猷곗뀑 罹먯떛 (capabilities, packer)
+# ====== YARA 룰 컴파일 함수 (캐싱 사용) ======
+# 동일한 파일을 반복해서 컴파일하는 것을 방지하기 위해 LRU 캐시 사용
+@lru_cache(maxsize=2) # 최대 2개 룰셋 캐싱 (capabilities, packer)
 def compile_yara_rules(filepath: str):
-    """二쇱뼱吏? 寃쎈줈?쓽 YARA 猷곗쓣 而댄뙆?씪?빀?땲?떎. ?떎?뙣 ?떆 None 諛섑솚 諛? 寃쎄퀬 異쒕젰."""
+    """주어진 경로의 YARA 룰을 컴파일합니다. 실패 시 None 반환 및 경고 출력."""
     try:
-        # Dockerfile?뿉?꽌 yara_rules ?뤃?뜑瑜? 蹂듭궗?뻽?뒗吏? ?솗?씤 ?븘?슂
+        # Dockerfile에서 yara_rules 폴더를 복사했는지 확인 필요
         if not os.path.exists(filepath):
             print(f"[WARN] YARA rule file not found: {filepath}. Rule matching will be skipped.")
             return None
@@ -34,8 +33,8 @@ def compile_yara_rules(filepath: str):
         print(f"[ERROR] Failed to compile YARA rule {filepath}: {e}")
         return None
 
-# ====== Capabilities ?젙?쓽 ======
-# (?궗?슜?옄媛? ?젣怨듯븳 由ъ뒪?듃)
+# ====== Capabilities 정의 ======
+# (사용자가 제공한 리스트)
 all_capabilities = [
     'inject_thread', 'create_process', 'persistence', 'hijack_network', 'create_service', 'create_com_service',
     'network_udp_sock', 'network_tcp_listen', 'network_dyndns', 'network_toredo', 'network_smtp_dotNet',
@@ -48,10 +47,10 @@ all_capabilities = [
     'Str_Win32_Internet_API', 'Str_Win32_Http_API', 'ldpreload', 'mysql_database_presence'
 ]
 
-# ====== ?듅吏? 異붿텧 ?뿬?띁 ?븿?닔?뱾 (?븞?젙?꽦 媛쒖꽑) ======
-# (?씠?쟾 '媛쒖꽑?맖' 踰꾩쟾?쓽 ?븿?닔?뱾 ?궗?슜)
+# ====== 특징 추출 헬퍼 함수들 (안정성 개선) ======
+# (이전 '개선됨' 버전의 함수들 사용)
 def get_characteristics_list(binary: lief.PE.Binary) -> List[str]:
-    """lief 諛붿씠?꼫由? 媛앹껜?뿉?꽌 DLL ?듅?꽦 由ъ뒪?듃瑜? 臾몄옄?뿴濡? 諛섑솚?빀?땲?떎."""
+    """lief 바이너리 객체에서 DLL 특성 리스트를 문자열로 반환합니다."""
     try:
         if (binary and hasattr(binary, 'optional_header') and
                 isinstance(binary.optional_header, lief.PE.OptionalHeader) and
@@ -64,7 +63,7 @@ def get_characteristics_list(binary: lief.PE.Binary) -> List[str]:
         return []
 
 def has_manifest(binary: lief.PE.Binary) -> int:
-    """由ъ냼?뒪 留ㅻ땲?????? 留ㅻ땲?럹?뒪?듃 議댁옱 ?뿬遺?瑜? 諛섑솚?빀?땲?떎."""
+    """리소스 매니저와 매니페스트 존재 여부를 반환합니다."""
     try:
         return int(binary and binary.has_resources and hasattr(binary, 'resources_manager') and binary.resources_manager.has_manifest)
     except Exception as e:
@@ -72,11 +71,11 @@ def has_manifest(binary: lief.PE.Binary) -> int:
         return -1
 
 def has_aslr(binary: lief.PE.Binary) -> int:
-    """ASLR 吏??썝 ?뿬遺?瑜? 諛섑솚?빀?땲?떎."""
+    """ASLR 지원 여부를 반환합니다."""
     return int("DYNAMIC_BASE" in get_characteristics_list(binary))
 
 def has_tls(binary: lief.PE.Binary) -> int:
-    """TLS ?궗?슜 ?뿬遺?瑜? 諛섑솚?빀?땲?떎."""
+    """TLS 사용 여부를 반환합니다."""
     try:
         return int(binary and binary.has_tls)
     except Exception as e:
@@ -84,11 +83,11 @@ def has_tls(binary: lief.PE.Binary) -> int:
         return -1
 
 def has_dep(binary: lief.PE.Binary) -> int:
-    """DEP 吏??썝 ?뿬遺?瑜? 諛섑솚?빀?땲?떎."""
+    """DEP 지원 여부를 반환합니다."""
     return int("NX_COMPAT" in get_characteristics_list(binary))
 
 def check_ci(binary: lief.PE.Binary) -> int:
-    """Code Integrity ?솗?씤."""
+    """Code Integrity 확인."""
     try:
         if binary and binary.has_configuration:
             config = binary.load_configuration
@@ -102,11 +101,11 @@ def check_ci(binary: lief.PE.Binary) -> int:
         return -1
 
 def supports_cfg(binary: lief.PE.Binary) -> int:
-    """Control Flow Guard 吏??썝 ?뿬遺?瑜? 諛섑솚?빀?땲?떎."""
+    """Control Flow Guard 지원 여부를 반환합니다."""
     return int("GUARD_CF" in get_characteristics_list(binary))
 
 def suspicious_dbgts(binary: lief.PE.Binary) -> int:
-    """?뵒踰꾧렇 ????엫?뒪?꺃?봽媛? 誘몃옒 ?떆?젏?씤吏? ?솗?씤?빀?땲?떎."""
+    """디버그 타임스탬프가 미래 시점인지 확인합니다."""
     try:
         if binary and binary.has_debug:
             for item in binary.debug:
@@ -125,7 +124,7 @@ def suspicious_dbgts(binary: lief.PE.Binary) -> int:
         return -1
 
 def is_signed(filename: str) -> int:
-    """signify ?씪?씠釉뚮윭由щ?? ?궗?슜?븯?뿬 ?뙆?씪 ?꽌紐? ?뿬遺?瑜? ?솗?씤?빀?땲?떎."""
+    """signify 라이브러리를 사용하여 파일 서명 여부를 확인합니다."""
     try:
         with open(filename, "rb") as f:
             signed_pe = SignedPEFile(f)
@@ -135,7 +134,7 @@ def is_signed(filename: str) -> int:
         return -1
 
 def is_packed(filename: str) -> int:
-    """YARA 猷곗쓣 ?궗?슜?븯?뿬 ?뙣?궧 ?뿬遺?瑜? ?솗?씤?빀?땲?떎 (?궡遺??뿉?꽌 猷? 而댄뙆?씪)."""
+    """YARA 룰을 사용하여 패킹 여부를 확인합니다 (내부에서 룰 컴파일)."""
     packer_rules = compile_yara_rules(PACKER_RULES_FILE)
     if packer_rules is None:
         return -1
@@ -150,7 +149,7 @@ def is_packed(filename: str) -> int:
         return -1
 
 def calculate_sha256(filename: str) -> str:
-    """?뙆?씪?쓽 SHA256 ?빐?떆瑜? 怨꾩궛?빀?땲?떎."""
+    """파일의 SHA256 해시를 계산합니다."""
     sha256 = hashlib.sha256()
     try:
         with open(filename, 'rb') as f:
@@ -161,26 +160,26 @@ def calculate_sha256(filename: str) -> str:
         print(f"[ERROR] Failed to calculate SHA256 for {os.path.basename(filename)}: {e}")
         return "error_calculating_hash"
 
-# ====== 硫붿씤 ?듅吏? 異붿텧 諛? ????옣 ?븿?닔 ======
+# ====== 메인 특징 추출 및 저장 함수 ======
 def extract_features_for_file(input_file_path: str) -> Tuple[Dict[str, Any], str | None]:
     """
-    二쇱뼱吏? ?떒?씪 PE ?뙆?씪 寃쎈줈濡쒕???꽣 ?듅吏뺤쓣 異붿텧?븯怨?, 寃곌낵瑜? ?뵓?뀛?꼫由щ줈 諛섑솚?븯硫?,
-    ?룞?씪 ?뵒?젆?넗由ъ뿉 CSV ?뙆?씪濡? ????옣?빀?땲?떎. (吏??젙?맂 ?뿴 ?닚?꽌 ?쟻?슜)
+    주어진 단일 PE 파일 경로로부터 특징을 추출하고, 결과를 딕셔너리로 반환하며,
+    동일 디렉토리에 CSV 파일로 저장합니다. (지정된 열 순서 적용)
     """
     features: Dict[str, Any] = {}
     output_csv_path: str | None = None
     filename = os.path.basename(input_file_path)
-    start_time = time.time() # ?븿?닔 ?떆?옉 ?떆媛? 湲곕줉
+    start_time = time.time() # 함수 시작 시간 기록
 
-    # Capabilities 猷? 而댄뙆?씪 ?떆?룄 (?븿?닔 ?샇異? ?떆)
+    # Capabilities 룰 컴파일 시도 (함수 호출 시)
     capabilities_rules = compile_yara_rules(CAPABILITIES_RULES_FILE)
 
     try:
         print(f"[INFO] Processing: {filename}")
-        binary: lief.PE.Binary | None = None # lief 媛앹껜 珥덇린?솕
-        pe: pefile.PE | None = None # pefile 媛앹껜 珥덇린?솕
+        binary: lief.PE.Binary | None = None # lief 객체 초기화
+        pe: pefile.PE | None = None # pefile 객체 초기화
 
-        # lief??? pefile 媛앹껜 ?깮?꽦 ?떆?룄 (?삤瑜? 諛쒖깮 ?떆?뿉?룄 ?듅吏? 異붿텧 怨꾩냽 ?떆?룄)
+        # lief와 pefile 객체 생성 시도 (오류 발생 시에도 특징 추출 계속 시도)
         try:
             binary = lief.parse(input_file_path)
             if binary is None:
@@ -189,7 +188,7 @@ def extract_features_for_file(input_file_path: str) -> Tuple[Dict[str, Any], str
              print(f"[WARN] Lief bad_file error for {filename}: {e}")
         except FileNotFoundError:
              print(f"[ERROR] Input file not found for lief: {input_file_path}")
-             raise # ?뙆?씪 ?뾾?쓬??? 怨꾩냽 吏꾪뻾 遺덇??
+             raise # 파일 없음은 계속 진행 불가
         except Exception as e:
              print(f"[WARN] Error parsing with lief for {filename}: {e}")
 
@@ -199,22 +198,22 @@ def extract_features_for_file(input_file_path: str) -> Tuple[Dict[str, Any], str
             print(f"[WARN] pefile PEFormatError for {filename}: {e}")
         except FileNotFoundError:
              print(f"[ERROR] Input file not found for pefile: {input_file_path}")
-             raise # ?뙆?씪 ?뾾?쓬??? 怨꾩냽 吏꾪뻾 遺덇??
+             raise # 파일 없음은 계속 진행 불가
         except Exception as e:
             print(f"[WARN] Error loading with pefile for {filename}: {e}")
 
-        # --- ?듅吏? 異붿텧 ?떆?옉 ---
+        # --- 특징 추출 시작 ---
         features['filename'] = filename
         features['sha256'] = calculate_sha256(input_file_path)
         features['isSigned'] = is_signed(input_file_path)
-        features['isPacked'] = is_packed(input_file_path) # ?븿?닔 ?궡遺??뿉?꽌 packer 猷? 而댄뙆?씪
+        features['isPacked'] = is_packed(input_file_path) # 함수 내부에서 packer 룰 컴파일
 
-        # PE header features (pefile ?궗?슜)
+        # PE header features (pefile 사용)
         if pe and hasattr(pe, 'OPTIONAL_HEADER') and pe.OPTIONAL_HEADER:
             opt_header = pe.OPTIONAL_HEADER
             features['MajorLinkerVersion'] = getattr(opt_header, 'MajorLinkerVersion', 0)
             features['MinorLinkerVersion'] = getattr(opt_header, 'MinorLinkerVersion', 0)
-            # ... (湲고?? Optional Header ?븘?뱶) ...
+            # ... (기타 Optional Header 필드) ...
             features['SizeOfUninitializedData'] = getattr(opt_header, 'SizeOfUninitializedData', 0)
             features['ImageBase'] = getattr(opt_header, 'ImageBase', 0)
             features['FileAlignment'] = getattr(opt_header, 'FileAlignment', 0)
@@ -265,12 +264,13 @@ def extract_features_for_file(input_file_path: str) -> Tuple[Dict[str, Any], str
             features.setdefault('SizeOfRawData', 0)
             features.setdefault('Misc', 0)
 
-        # Capabilities via YARA (而댄뙆?씪?맂 猷? 媛앹껜 ?궗?슜)
-        if capabilities_rules: # 猷? 而댄뙆?씪 ?꽦怨? ?떆?뿉留? ?떎?뻾
+        # Capabilities via YARA (컴파일된 룰 객체 사용)
+        if capabilities_rules: # 룰 컴파일 성공 시에만 실행
             try:
                 matched = capabilities_rules.match(input_file_path)
                 matched_names = [m.rule for m in matched if hasattr(m, 'rule')]
                 for cap in all_capabilities:
+                    # setdefault 를 사용하여 키가 없는 경우에도 오류 없이 0으로 설정
                     features.setdefault(cap, int(cap in matched_names))
             except yara.Error as e:
                 print(f"[WARN] YARA matching error (capabilities) for {filename}: {e}")
@@ -282,7 +282,7 @@ def extract_features_for_file(input_file_path: str) -> Tuple[Dict[str, Any], str
              print("[WARN] Capabilities YARA rules not compiled/loaded. Skipping capabilities check.")
              for cap in all_capabilities: features.setdefault(cap, -1)
 
-        # 異붽?? 遺꾩꽍 ?뵆?옒洹? (lief ?궗?슜, binary 媛앹껜 None 泥댄겕 異붽??)
+        # 추가 분석 플래그 (lief 사용, binary 객체 None 체크 추가)
         if binary:
             features['has_manifest'] = has_manifest(binary)
             features['has_aslr'] = has_aslr(binary)
@@ -292,18 +292,18 @@ def extract_features_for_file(input_file_path: str) -> Tuple[Dict[str, Any], str
             features['supports_cfg'] = supports_cfg(binary)
             features['suspicious_dbgts'] = suspicious_dbgts(binary)
         else:
-            # lief ?뙆?떛 ?떎?뙣 ?떆 湲곕낯媛? -1 ?꽕?젙
+            # lief 파싱 실패 시 기본값 -1 설정
             lief_flags = ['has_manifest', 'has_aslr', 'has_tls', 'has_dep', 'code_integrity', 'supports_cfg', 'suspicious_dbgts']
             for flag in lief_flags: features.setdefault(flag, -1)
 
-        # --- ?듅吏? 異붿텧 ?셿猷? ---
+        # --- 특징 추출 완료 ---
 
-        # --- CSV ?뙆?씪 ????옣 (吏??젙?맂 ?뿴 ?닚?꽌 ?쟻?슜) ---
+        # --- CSV 파일 저장 (지정된 열 순서 적용) ---
         output_dir = os.path.dirname(input_file_path)
         output_csv_filename = f"{filename}_features.csv"
         output_csv_path = os.path.join(output_dir, output_csv_filename)
 
-        # CSV ????옣 ?쐞?븳 ?뿴 ?닚?꽌 ?젙?쓽
+        # CSV 저장 위한 열 순서 정의
         desired_column_order = [
             "filename", "sha256", "isSigned", "isPacked", "MajorLinkerVersion",
             "MinorLinkerVersion", "SizeOfUninitializedData", "ImageBase", "FileAlignment",
@@ -331,28 +331,29 @@ def extract_features_for_file(input_file_path: str) -> Tuple[Dict[str, Any], str
 
         try:
             df = pd.DataFrame([features])
+            # 실제 존재하는 컬럼만 desired_column_order 순서에 맞게 필터링
             columns_to_write = [col for col in desired_column_order if col in df.columns]
             df.to_csv(output_csv_path, index=False, columns=columns_to_write)
             print(f"[INFO] Features saved to: {output_csv_path}")
         except Exception as e:
             print(f"[ERROR] Failed to save features to CSV for {filename}: {e}")
-            output_csv_path = None # ????옣 ?떎?뙣
+            output_csv_path = None # 저장 실패
 
-    except (ValueError, FileNotFoundError) as e: # ?뙆?씪 ?뾾?쓬 ?삉?뒗 ?뙆?떛 遺덇?? ?삤瑜?
+    except (ValueError, FileNotFoundError) as e: # 파일 없음 또는 파싱 불가 오류
         print(f"[ERROR] Cannot process file {filename}: {e}")
-        features['error'] = str(e) # ?삤瑜? ?젙蹂? 異붽??
-    except Exception as e: # 湲고?? ?삁?쇅 泥섎━
+        features['error'] = str(e) # 오류 정보 추가
+    except Exception as e: # 기타 예외 처리
         print(f"[ERROR] Unexpected error processing {filename}: {e}")
         features['error'] = str(e)
     finally:
-        # pefile 媛앹껜 ?떕湲? (?깮?꽦 ?꽦怨? ?떆)
+        # pefile 객체 닫기 (생성 성공 시)
         if 'pe' in locals() and pe and hasattr(pe, 'close'):
             try: pe.close()
             except Exception as close_e: print(f"[WARN] Error closing pefile object: {close_e}")
 
-    # 泥섎━ ?떆媛꾩?? CSV ????옣 ?썑 features ?뵓?뀛?꼫由ъ뿉 異붽??
+    # 처리 시간은 CSV 저장 후 features 딕셔너리에 추가
     end_time = time.time()
     features['processing_time'] = round(end_time - start_time, 3)
 
-    # 理쒖쥌?쟻?쑝濡? ?듅吏? ?뵓?뀛?꼫由ъ?? CSV 寃쎈줈 諛섑솚
+    # 최종적으로 특징 딕셔너리와 CSV 경로 반환
     return features, output_csv_path
