@@ -23,21 +23,24 @@ ENV LD_LIBRARY_PATH=/app/lib:$LD_LIBRARY_PATH
 
 # 6. requirements.txt 복사 및 파이썬 패키지 설치
 COPY requirements.txt .
-# requirements.txt 에 yara-python==4.2.3 지정 필수!
+# requirements.txt 에 포함된 libyara.so 와 호환되는 yara-python 버전 명시 (예: 4.2.3)
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 7. 애플리케이션 코드 전체 복사 (lib/libyara.so 포함)
+# 이 단계에서 로컬의 lib/libyara.so 가 /app/lib/libyara.so 로 복사됨
 COPY . .
 
 # 8. <<<<< libyara.so 파일을 venv/lib 로 직접 복사 및 실행 권한 부여 (최종 시도) >>>>>
-RUN echo "--- Checking bundled libyara.so in /app/lib after COPY ---" && \
+# 빌드 로그 확인용 echo 추가
+# /app/lib/libyara.so 파일 존재 확인 후 복사 및 권한 설정
+RUN echo "--- Checking bundled libyara.so in /app/lib ---" && \
     ls -l /app/lib/libyara.so || echo "--- FATAL: Bundled libyara.so not found in /app/lib! Check Git repo and COPY command. ---" && \
     echo "--- Attempting to copy bundled libyara.so to /opt/venv/lib/ ---" && \
     mkdir -p /opt/venv/lib && \
     cp /app/lib/libyara.so /opt/venv/lib/libyara.so && \
     chmod +x /opt/venv/lib/libyara.so && \
     ldconfig && # ldconfig 추가 (혹시 venv 경로도 인식할지 모름)
-    echo "--- Copy, chmod, and ldconfig finished. Checking final file: ---" && \
+    echo "--- Copy, chmod, and ldconfig finished. Checking final file: ---" && \ # <--- 이 줄 끝에 && \ 추가됨
     ls -l /opt/venv/lib/libyara.so || echo "--- FATAL: File not found in /opt/venv/lib after copy! ---"
 
 # 9. 애플리케이션 실행 명령 (JSON 배열 형식, 포트 8000 고정)
