@@ -1,13 +1,15 @@
 # Dockerfile.build_yara (libyara.so 추출용)
 
-# 사용할 셸을 명시적으로 지정 (PowerShell 대신 sh 사용)
+# 1. 베이스 이미지 선택 (가장 먼저 나와야 함)
+FROM python:3.12
+
+# 사용할 셸을 명시적으로 지정 (FROM 다음에 위치)
 SHELL ["/bin/sh", "-c"]
 
-# 1. 베이스 이미지 선택
-FROM python:3.12
+# 2. 작업 디렉토리 설정
 WORKDIR /build
 
-# 2. 시스템 패키지 업데이트 및 YARA 컴파일에 필요한 빌드 도구 설치
+# 3. 시스템 패키지 업데이트 및 YARA 컴파일에 필요한 빌드 도구 설치
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential python3-dev cmake libssl-dev libffi-dev binutils \
@@ -16,7 +18,7 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# 3. YARA 소스 코드 다운로드, 컴파일 및 설치 (requirements.txt 와 버전 일치시킬 것, 예: 4.2.3)
+# 4. YARA 소스 코드 다운로드, 컴파일 및 설치 (requirements.txt 와 버전 일치시킬 것, 예: 4.2.3)
 # 사용할 yara-python 버전에 맞춰 YARA_VERSION 을 설정하세요.
 ENV YARA_VERSION=4.2.3
 RUN curl -L -o yara-${YARA_VERSION}.tar.gz "https://github.com/VirusTotal/yara/archive/refs/tags/v${YARA_VERSION}.tar.gz" && \
