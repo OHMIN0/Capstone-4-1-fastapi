@@ -40,7 +40,7 @@ RUN echo "--- Checking bundled libyara.so in /app/lib ---" && \
     cp /app/lib/libyara.so /opt/venv/lib/libyara.so && \
     chmod +x /opt/venv/lib/libyara.so && \
     ldconfig && # ldconfig 추가 (혹시 venv 경로도 인식할지 모름)
-    echo "--- Copy, chmod, and ldconfig finished. Checking final file: ---" && \ # <--- 이 줄 끝에 && \ 추가됨
+    echo "--- Copy, chmod, and ldconfig finished. Checking final file: ---" && \
     ls -l /opt/venv/lib/libyara.so || echo "--- FATAL: File not found in /opt/venv/lib after copy! ---"
 
 # 9. 애플리케이션 실행 명령 (JSON 배열 형식, 포트 8000 고정)
