@@ -19,6 +19,3 @@ Thumbs.db
 
 # Secrets (if any, e.g., .env files)
 .env*
-
-
-/lib
