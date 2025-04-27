@@ -6,14 +6,12 @@ FROM python:3.12
 # 2. 작업 디렉토리 설정
 WORKDIR /app
 
-# 3. 시스템 패키지 업데이트 및 기본 빌드 도구 + OpenSSL 설치
+# 3. 시스템 패키지 업데이트 및 기본 빌드 도구 설치 (YARA C 라이브러리 설치 제거)
+# yara, libyara-dev 는 제거. 다른 패키지 설치에 필요할 수 있는 도구는 유지.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential python3-dev cmake libssl-dev libffi-dev binutils curl \
-        libmagic-dev make automake libtool pkg-config \
-        openssl && \
-    # ^^^^^^^^ openssl 패키지 추가
-    # YARA 관련 패키지 설치 제거됨
+        libmagic-dev make automake libtool pkg-config && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -25,7 +23,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # 6. requirements.txt 복사 및 파이썬 패키지 설치
 COPY requirements.txt .
-# requirements.txt 에서 yara-python 라인 제거 또는 주석 처리됨
+# requirements.txt 에 yara-python 버전 명시 (최신 또는 4.2.3 등 시도)
+# pip 이 yara-python 설치 시 필요한 C 라이브러리까지 처리해주기를 기대
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 7. 애플리케이션 코드 전체 복사 (lib 폴더는 포함하지 않음)
