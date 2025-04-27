@@ -6,7 +6,7 @@ FROM python:3.12.6
 # 2. 작업 디렉토리 설정
 WORKDIR /app
 
-# 3. 시스템 패키지 업데이트 및 기본 빌드 도구 설치 (YARA 관련 모두 제거)
+# 3. 시스템 패키지 업데이트 및 기본 빌드 도구 설치
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential python3-dev cmake libssl-dev libffi-dev binutils curl \
@@ -14,36 +14,22 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# 4. 파이썬 가상 환경 생성 및 활성화 경로 설정
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# 4. 파이썬 가상 환경 생성 단계 제거
 
-# 5. LD_LIBRARY_PATH 환경 변수 설정 제거
+# 5. LD_LIBRARY_PATH 환경 변수 설정 (앱 내부 라이브러리 경로)
+# 시스템 파이썬을 사용하므로 /app/lib 경로만 추가
+ENV LD_LIBRARY_PATH=/app/lib:$LD_LIBRARY_PATH
 
-# 6. requirements.txt 복사 및 파이썬 패키지 설치
+# 6. requirements.txt 복사 및 파이썬 패키지 설치 (시스템 파이썬에 직접 설치)
 COPY requirements.txt .
-# requirements.txt 에 포함된 libyara.so 와 호환되는 yara-python 버전 명시 (예: 4.2.3)
+# requirements.txt 에 yara-python==4.2.3 지정 필수!
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 7. 애플리케이션 코드 전체 복사 (lib/libyara.so 포함)
-# 이 단계에서 로컬의 lib/libyara.so 가 /app/lib/libyara.so 로 복사됨
 COPY . .
 
-# 8. <<<<< libyara.so 파일을 venv/lib 로 직접 복사 및 실행 권한 부여 (재시도) >>>>>
-# 빌드 로그 확인용 echo 추가
-RUN echo "--- Checking bundled libyara.so in /app/lib after COPY ---" && \
-    ls -l /app/lib/libyara.so || echo "--- FATAL: Bundled libyara.so not found in /app/lib! Check Git repo and COPY command. ---" && \
-    echo "--- Attempting to copy bundled libyara.so to /opt/venv/lib/ ---" && \
-    # 대상 디렉토리 생성
-    mkdir -p /opt/venv/lib && \
-    # 파일 복사
-    cp /app/lib/libyara.so /opt/venv/lib/libyara.so && \
-    # 실행 권한 부여
-    chmod +x /opt/venv/lib/libyara.so && \
-    # ldconfig 실행 (혹시 모르니 추가)
-    ldconfig && \
-    echo "--- Copy, chmod, and ldconfig finished. Checking final file in venv: ---" && \
-    ls -l /opt/venv/lib/libyara.so || echo "--- FATAL: File not found in /opt/venv/lib after copy! ---"
+# 8. libyara.so 복사 단계 제거
 
 # 9. 애플리케이션 실행 명령 (JSON 배열 형식, 포트 8000 고정)
+# 시스템 파이썬의 uvicorn 사용
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
