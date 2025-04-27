@@ -39,7 +39,8 @@ RUN echo "--- Checking bundled libyara.so in /app/lib ---" && \
     mkdir -p /opt/venv/lib && \
     cp /app/lib/libyara.so /opt/venv/lib/libyara.so && \
     chmod +x /opt/venv/lib/libyara.so && \
-    ldconfig && # ldconfig 추가 (혹시 venv 경로도 인식할지 모름)
+    ldconfig && 
+    # ldconfig 추가 (혹시 venv 경로도 인식할지 모름)
     echo "--- Copy, chmod, and ldconfig finished. Checking final file: ---" && \
     ls -l /opt/venv/lib/libyara.so || echo "--- FATAL: File not found in /opt/venv/lib after copy! ---"
 
