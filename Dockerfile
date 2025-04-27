@@ -18,7 +18,7 @@ RUN apt-get update && \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# 5. LD_LIBRARY_PATH 환경 변수 설정 (앱 내부 라이브러리 경로 - 유지)
+# 5. LD_LIBRARY_PATH 환경 변수 설정 (앱 내부 라이브러리 경로)
 # /app/lib 디렉토리를 라이브러리 검색 경로에 추가
 ENV LD_LIBRARY_PATH=/app/lib:$LD_LIBRARY_PATH
 
@@ -31,18 +31,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 이 단계에서 로컬의 lib/libyara.so 가 /app/lib/libyara.so 로 복사됨
 COPY . .
 
-# 8. <<<<< libyara.so 파일을 venv/lib 로 직접 복사 및 실행 권한 부여 (재시도) >>>>>
-# 빌드 로그 확인용 echo 추가
-# /app/lib/libyara.so 파일 존재 확인 후 복사 및 권한 설정
-RUN echo "--- Checking bundled libyara.so in /app/lib ---" && \
-    ls -l /app/lib/libyara.so || echo "--- Bundled libyara.so not found in /app/lib! Check Git repo. ---" && \
-    echo "--- Attempting to copy bundled libyara.so to /opt/venv/lib/ ---" && \
-    mkdir -p /opt/venv/lib && \
-    cp /app/lib/libyara.so /opt/venv/lib/libyara.so && \
-    # <<<<< 실행 권한 추가 >>>>>
-    chmod +x /opt/venv/lib/libyara.so && \
-    echo "--- Copy and chmod finished. Checking file existence and permissions in venv: ---" && \
-    ls -l /opt/venv/lib/libyara.so || echo "--- File not found in /opt/venv/lib after copy! ---"
-
-# 9. 애플리케이션 실행 명령 (번호 조정됨)
-CMD uvicorn main:app --host 0.0.0.0 --port $PORT
+# 8. 애플리케이션 실행 명령 (JSON 배열 형식으로 수정)
+# Docker 권장 사항에 따라 CMD를 JSON 배열 형식으로 변경
+# 주의: 이 형식에서는 환경 변수($PORT)를 직접 사용할 수 없으므로,
+# 시작 스크립트를 사용하거나 포트를 고정해야 합니다.
+# 여기서는 Uvicorn 기본 포트 8000을 사용하도록 고정합니다.
+# 또는 시작 스크립트(entrypoint.sh)를 만들어 $PORT를 처리하도록 할 수 있습니다.
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
