@@ -12,6 +12,7 @@ RUN apt-get update && \
         build-essential python3-dev cmake libssl-dev libffi-dev binutils curl \
         libmagic-dev make automake libtool pkg-config \
         openssl libssl3 && \
+    # YARA 관련 패키지 설치 제거됨
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -19,9 +20,8 @@ RUN apt-get update && \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# 5. <<<<< LD_LIBRARY_PATH 환경 변수 설정 재추가 >>>>>
-# libcrypto.so 가 설치된 시스템 경로를 라이브러리 검색 경로에 추가
-ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+# 5. LD_LIBRARY_PATH 환경 변수 설정 제거 (Entrypoint에서 설정)
+# ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 
 # 6. requirements.txt 복사 및 파이썬 패키지 설치
 COPY requirements.txt .
@@ -31,7 +31,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 7. 애플리케이션 코드 전체 복사 (lib 폴더는 포함하지 않음)
 COPY . .
 
-# 8. libyara.so 복사 및 ldconfig 단계 제거
+# 8. <<<<< Entrypoint 스크립트 복사 및 실행 권한 부여 >>>>>
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
 
-# 9. 애플리케이션 실행 명령 (JSON 배열 형식, 포트 8000 고정)
+# 9. <<<<< ENTRYPOINT 설정 >>>>>
+# 컨테이너 시작 시 entrypoint.sh 스크립트를 실행하도록 설정
+ENTRYPOINT ["/app/entrypoint.sh"]
+
+# 10. 기본 실행 명령 (Entrypoint 스크립트에 인자로 전달됨)
+# 포트를 8000으로 고정
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
