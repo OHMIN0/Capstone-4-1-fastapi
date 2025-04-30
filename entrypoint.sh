@@ -9,4 +9,3 @@
 
     # Dockerfile의 CMD 에서 전달된 명령어를 실행
     exec "$@"
-    

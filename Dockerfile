@@ -6,13 +6,14 @@ FROM python:3.12.6
 # 2. 작업 디렉토리 설정
 WORKDIR /app
 
-# 3. 시스템 패키지 업데이트 및 기본 빌드 도구 + OpenSSL 런타임 설치
+# 3. 시스템 패키지 업데이트 및 기본 빌드 도구 + OpenSSL + dos2unix 설치
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential python3-dev cmake libssl-dev libffi-dev binutils curl \
         libmagic-dev make automake libtool pkg-config \
-        openssl libssl3 && \
-    # YARA 관련 패키지 설치 제거됨
+        openssl libssl3 \
+        dos2unix && \
+    # ^^^^^^^^^ dos2unix 추가
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -31,9 +32,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 7. 애플리케이션 코드 전체 복사 (lib 폴더는 포함하지 않음)
 COPY . .
 
-# 8. <<<<< Entrypoint 스크립트 복사 및 실행 권한 부여 >>>>>
+# 8. <<<<< Entrypoint 스크립트 복사, 권한 부여 및 줄 끝 변환 >>>>>
 COPY entrypoint.sh .
-RUN chmod +x entrypoint.sh
+# dos2unix 를 실행하여 CRLF -> LF 변환
+RUN dos2unix entrypoint.sh && \
+    chmod +x entrypoint.sh
 
 # 9. <<<<< ENTRYPOINT 설정 >>>>>
 # 컨테이너 시작 시 entrypoint.sh 스크립트를 실행하도록 설정
