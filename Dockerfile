@@ -6,25 +6,21 @@ FROM python:3.12.6
 # 2. 작업 디렉토리 설정
 WORKDIR /app
 
-# 3. 시스템 패키지 업데이트 및 기본 빌드 도구 + OpenSSL 설치
+# 3. 시스템 패키지 업데이트 및 기본 빌드 도구 + OpenSSL 런타임 설치
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential python3-dev cmake libssl-dev libffi-dev binutils curl \
         libmagic-dev make automake libtool pkg-config \
-        openssl && \
+        openssl libssl3 && \
+    # ^^^^^^^^ libssl3 추가 (OpenSSL 런타임 라이브러리)
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
-# <<<<< 진단 단계 제거 >>>>>
-# RUN echo "--- Checking for libcrypto.so location ---" && \
-#     ls -l /usr/lib/x86_64-linux-gnu/libcrypto.so* 2>/dev/null || echo "--- libcrypto.so not found in /usr/lib/x86_64-linux-gnu ---" && \
-#     echo "--- libcrypto check complete ---"
 
 # 4. 파이썬 가상 환경 생성 및 활성화 경로 설정
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# 5. <<<<< LD_LIBRARY_PATH 환경 변수 설정 추가 >>>>>
+# 5. LD_LIBRARY_PATH 환경 변수 설정 추가 (libcrypto 경로 명시)
 # libcrypto.so 가 설치된 시스템 경로를 라이브러리 검색 경로에 추가
 ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 
