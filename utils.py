@@ -11,9 +11,9 @@ def ensure_upload_dir_exists():
     if not os.path.exists(UPLOAD_DIR):
         try:
             os.makedirs(UPLOAD_DIR)
-            print(f"[INFO] 업로드 디렉토리 생성: {UPLOAD_DIR}")
+            print(f"[INFO] Upload Dir Create Complete : {UPLOAD_DIR}")
         except OSError as e:
-            print(f"[ERROR] 업로드 디렉토리 생성 실패: {e}")
+            print(f"[ERROR] Upload Dir Create Failed : {e}")
             raise # 오류 발생 시 상위 호출자에게 전파
 
 # 함수들 더 분리해서 여기서 한번에 다루고 싶은데,

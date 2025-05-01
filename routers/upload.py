@@ -37,7 +37,7 @@ async def upload_and_analyze_file(request: Request, peFile: UploadFile = File(..
 
     # 업로드된 파일을 저장할 전체 경로 생성
     file_path = os.path.join(UPLOAD_DIR, original_filename)
-    print(f"[INFO] 파일 업로드 요청 수신 (라우터): {original_filename}")
+    print(f"[INFO] File upload request reception... (Router): {original_filename}")
 
     # 최종적으로 템플릿에 전달될 결과 딕셔너리
     api_response: Dict[str, Any] = {}
@@ -46,7 +46,7 @@ async def upload_and_analyze_file(request: Request, peFile: UploadFile = File(..
         # 1. 파일 저장
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(peFile.file, buffer)
-        print(f"[INFO] 파일 저장 성공 (라우터): {file_path}")
+        print(f"[INFO] File upload complete! (Router): {file_path}")
 
         # 2. 분석 실행 (analysis.py의 run_analysis 함수 호출)
         # run_analysis는 분석 결과를 담은 딕셔너리를 반환할 예정
@@ -71,7 +71,7 @@ async def upload_and_analyze_file(request: Request, peFile: UploadFile = File(..
 
     except Exception as e:
         # 파일 저장 또는 run_analysis 호출 중 예외 발생 시
-        print(f"[ERROR] 파일 처리/분석 오류 (라우터): {original_filename} | 오류: {e}")
+        print(f"[ERROR]  File processing/analysis errors (Router): {original_filename} | Exception: {e}")
         # 오류 발생 시, 오류 정보를 포함한 결과 딕셔너리 생성
         api_response = {
             "success": False,

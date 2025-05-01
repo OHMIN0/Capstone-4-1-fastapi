@@ -30,7 +30,7 @@ def run_analysis(file_path: str) -> Dict[str, Any]:
         # file_to_features.py의 함수 호출하여 특징 추출 및 CSV 저장 시도
         features_dict, csv_path = extract_features_for_file(file_path)
 
-        # 특징 추출 성공 여부 확인
+        # 특징 추출 성공 여부 확인 후, 성공 메세지 출력
         if csv_path and 'error' not in features_dict:
             print(f"[INFO] Feature extraction successful for: {file_path}. CSV saved at {csv_path}")
             success = True
@@ -47,7 +47,7 @@ def run_analysis(file_path: str) -> Dict[str, Any]:
 
     except Exception as e:
         # 예기치 못한 오류 발생 시 (모듈 임포트 실패 등)
-        # FileNotFoundError도 그냥 여기에 한번에 처리해버리도록 합쳤어요 코드만 길어져보이길래
+        # FileNotFoundError도 그냥 여기에 한번에 처리해버리도록 합쳤어요 코드만 더 길어져보이길래
         print(f"[ERROR] Unexpected error during analysis process for {file_path}: {e}")
         success = False
         message = f"분석 프로세스 중 예외 발생: {e}"
