@@ -9,8 +9,8 @@ on:
 
 jobs:
   deploy:
-    # 실행 환경: Windows 사용
-    runs-on: Windows
+    # 실행 환경: ubuntu 최신버전 사용
+    runs-on: ubuntu-latest
 
     steps:
     # 1. 코드 체크아웃: 저장소의 코드를 워크플로우 실행 환경으로 가져옴
