@@ -7,90 +7,87 @@ import shutil
 import os
 from typing import Dict, Any
 
-# --- 절대 경로 임포트로 수정 ---
+# --- 절대 경로 임포트 ---
 # 프로젝트 루트 디렉토리에 있는 모듈들을 직접 임포트합니다.
-from config import UPLOAD_DIR       # 설정값
-from utils import ensure_upload_dir_exists # 유틸리티 함수
-from analysis import run_analysis   # 분석 함수 (동기 함수임)
+from config import UPLOAD_DIR       # 업로드 경로 설정값
+from utils import ensure_upload_dir_exists # 업로드 디렉토리 생성 유틸리티 함수
+from analysis import run_analysis   # 특징 추출 및 분석 실행 함수 (동기 함수)
+
 
 # APIRouter 인스턴스 생성: 이 라우터에 경로들을 등록합니다.
 router = APIRouter()
-
-# Jinja2 템플릿 설정
-# main.py 와 마찬가지로 'templates' 디렉토리를 기준으로 설정합니다.
-# uvicorn 실행 위치(프로젝트 루트) 기준 상대 경로입니다.
-# 참고: 더 큰 애플리케이션에서는 의존성 주입(Depends)을 사용하여
-# main.py에서 생성된 templates 객체를 공유하는 것이 더 일반적입니다.
+# Jinja2 템플릿 설정 ('templates' 디렉토리 기준)
 templates = Jinja2Templates(directory="templates")
 
 
-# 메인 HTML 페이지 (home.html)를 렌더링하여 반환합니다. (GET 요청 처리)
-@router.get("/", response_class=HTMLResponse)
-async def read_home(request: Request):
-    """
-    메인 HTML 페이지 (home.html)를 렌더링하여 반환합니다.
-    초기 로드 시에는 분석 결과(apiResponse)가 없습니다.
-    """
-    ensure_upload_dir_exists()
-    return templates.TemplateResponse("home.html", {"request": request, "apiResponse": None})
-
-
-# 파일 업로드 및 분석 요청을 처리합니다. (Post 방식 사용)
-# 파일 저장 -> 분석 실행 -> 결과를 포함하는 HTML 페이지 렌더링
+# 파일 업로드 및 분석 처리 (POST /upload)
 @router.post("/upload", response_class=HTMLResponse)
 async def upload_and_analyze_file(request: Request, peFile: UploadFile = File(...)):
     """
-    클라이언트로부터 파일을 업로드 받아 저장하고, AI 분석을 수행한 후,
-    결과를 포함하여 동일한 home.html 템플릿을 다시 렌더링하여 반환합니다.
+    클라이언트로부터 pe파일을 업로드받을 경우, 분석 수행 후 결과 리턴.
+    도중 문제 발생 시 오류정보를, 문제가 없을 경우 분석 결과를 반환
 
-    - **request**: 템플릿 렌더링에 필요합니다.
-    - **peFile**: 업로드된 파일 객체 (`UploadFile`). HTML form의 `<input type="file" name="peFile">`과 이름이 일치해야 합니다.
-                 `python-multipart` 라이브러리가 설치되어 있어야 합니다.
+    - **request**: 템플릿 렌더링에 필요
+    - **peFile**: 웹에서 클라이언트가 업로드한 파일의 객체 (`UploadFile`). html에서의 name속성의 값과 일치시켜야함
     """
-    # 파일을 저장할 경로인 /uploaded-files폴더가 존재하는지 확인
-    # 없을 경우 폴더를 생성함
-    ensure_upload_dir_exists()
+    ensure_upload_dir_exists() # 업로드 디렉토리 확인 및 생성
 
-    # 업로드받은 PE파일의 이름을 original_filename변수에 저장
-    # UPLOAD_DIR은 config.py에서 관리하므로, 수정 필요할 경우 거기서 바꾸면 됨.
-    # 업로드할 파일과 루트를 변수에 저장하고, 아래 try문에서 저장 및 AI분석 실행
+    # 업로드받은 pe파일명을 그대로 백엔드에서 사용될 파일명으로 활용하기 위함
     original_filename = peFile.filename
+
+    # 업로드된 파일을 저장할 전체 경로 생성
     file_path = os.path.join(UPLOAD_DIR, original_filename)
     print(f"[INFO] 파일 업로드 요청 수신 (라우터): {original_filename}")
 
-    api_response: Dict[str, Any] = {} # 최종 결과를 담을 딕셔너리
+    # 최종적으로 템플릿에 전달될 결과 딕셔너리
+    api_response: Dict[str, Any] = {}
 
     try:
-        # 파일 저장
+        # 1. 파일 저장
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(peFile.file, buffer)
         print(f"[INFO] 파일 저장 성공 (라우터): {file_path}")
 
-        # AI 분석 실행 (analysis.py의 동기 함수 호출)
-        api_response = run_analysis(file_path)
+        # 2. 분석 실행 (analysis.py의 run_analysis 함수 호출)
+        # run_analysis는 분석 결과를 담은 딕셔너리를 반환할 예정
+        analysis_result = run_analysis(file_path)
+
+        # 3. 템플릿에 전달할 api_response의 구조
+        # run_analysis 결과에서 필요한 정보(is_malicious)를 포함하고,
+        # 템플릿에서 사용할 success 플래그와 다른 메시지를 추가
+        api_response = {
+            "success": analysis_result.get("success", False), # run_analysis 결과의 success 값 사용 (없으면 False)
+            "message": analysis_result.get("message", "분석 완료 (상세 메시지 없음)"), # run_analysis 결과의 message 사용
+            "is_malicious": analysis_result.get("is_malicious"), # run_analysis 결과의 is_malicious 값 (없으면 None)
+            # 필요 시 다른 최소한의 정보 추가 가능 (예: 분석했던 파일명 등)
+            "filename": original_filename
+        }
+        # 추후 run_analysis() 자체가 is_malicious 만 반환하도록 수정된다면, 아래와 같은 식으로 수정해도 됨
+        # api_response = {
+        #     "success": True,                                          # 분석 함수가 오류 없이 반환되면 성공으로 간주
+        #     "message": f"파일 '{original_filename}' 분석 완료.",       # 어차피 도중에 오류가 없었다면 분석이 성공한것이므로, 분석완료를 띄움
+        #     "is_malicious": analysis_result                           # run_analysis 가 is_malicious 값만 반환한다고 가정
+        # }
 
     except Exception as e:
         # 파일 저장 또는 run_analysis 호출 중 예외 발생 시
         print(f"[ERROR] 파일 처리/분석 오류 (라우터): {original_filename} | 오류: {e}")
-        # 오류 발생 시, 오류 정보를 포함한 결과 딕셔너리 생성하여 템플릿에 전달
+        # 오류 발생 시, 오류 정보를 포함한 결과 딕셔너리 생성
         api_response = {
-            "file_path": original_filename,
-            "csv_path": None, # 오류 시 csv 경로 없음
-            "analysis_time": 0.0,
-            "message": f"파일 처리 또는 분석 중 오류 발생: {e}",
             "success": False,
-            "is_malicious": None,
-            "confidence": None
+            "message": f"파일 처리 또는 분석 중 오류 발생: {e}",
+            "is_malicious": None, # 오류 시 악성 여부 알 수 없음
+            "filename": original_filename
         }
+    
     finally:
-        await peFile.close() # 파일 핸들 닫기 (UploadFile 객체는 비동기 close 지원)
+        await peFile.close()    # 업로드된 파일 리소스 해제
 
-    # 결과를 포함하여 home.html 템플릿을 렌더링하여 반환
-    # 템플릿에서는 'apiResponse' 라는 이름으로 결과 딕셔너리에 접근 가능
+
+    # 분석 실패든, 성공이든 상관없이 최종 결과를 포함하여 home.html 템플릿 렌더링
     return templates.TemplateResponse("home.html", {
         "request": request,
         "apiResponse": api_response
     })
 
-# 필요에 따라 이 라우터 파일에 관련된 다른 엔드포인트들을 추가할 수 있습니다.
-# 예: @router.get("/results/{file_id}") 등
+# 나중에 추가할 것들 생기면 아래에 엔드포인트 추가.
