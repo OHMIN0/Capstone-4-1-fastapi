@@ -5,7 +5,7 @@ name: Deploy FastAPI to EC2 Windows
 # 워크플로우 트리거 조건: main 브랜치에 push 이벤트가 발생했을 때
 on:
   push:
-    branches: [ main ] # 필요시 다른 브랜치 이름으로 변경
+    branches: [ master ] # 필요시 다른 브랜치 이름으로 변경
 
 jobs:
   deploy:
