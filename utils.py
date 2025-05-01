@@ -14,5 +14,7 @@ def ensure_upload_dir_exists():
             print(f"[INFO] 업로드 디렉토리 생성: {UPLOAD_DIR}")
         except OSError as e:
             print(f"[ERROR] 업로드 디렉토리 생성 실패: {e}")
-            # 실제 운영 환경에서는 더 강력한 오류 처리나 로깅이 필요할 수 있습니다.
             raise # 오류 발생 시 상위 호출자에게 전파
+
+# 함수들 더 분리해서 여기서 한번에 다루고 싶은데,
+# 지금으로써는 더 분리할만한 애들이 안보여요

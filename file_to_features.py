@@ -1,4 +1,5 @@
 # file_to_features.py
+# 얘네는 저도 그냥 올려놔주셨던거 다운받아서 코드에 맞춰 수정해달라고만 요청했던 애들이라...
 
 import os
 import time
@@ -7,7 +8,7 @@ import datetime
 import hashlib
 import pefile
 import lief
-import yara # yara 임포트는 유지
+import yara # yara(c)가 아닌, yara-python을 설치한 상태지만, import할때는 yara로 작성해야지 정상적으로 작동함.
 from signify.authenticode import SignedPEFile
 from typing import Dict, Any, List, Tuple
 from functools import lru_cache # 간단한 캐싱을 위해 추가
