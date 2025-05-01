@@ -3,7 +3,7 @@
 import os
 # config.py 에서 UPLOAD_DIR 임포트
 from config import UPLOAD_DIR
-
+ 
 def ensure_upload_dir_exists():
     """
     설정 파일(config.py)에 정의된 업로드 디렉토리가 없으면 생성합니다.
