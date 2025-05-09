@@ -1,51 +1,26 @@
 # .github/workflows/deploy.yml
 
-name: Deploy FastAPI to EC2 Windows
+name: Test EC2 Windows SSH Connection
 
-# 워크플로우 트리거 조건: main 브랜치에 push 이벤트가 발생했을 때
 on:
   push:
-    branches: [ master ] # 필요시 다른 브랜치 이름으로 변경
+    branches: [ master ]
 
 jobs:
-  deploy:
-    # 실행 환경: ubuntu 최신버전 사용
+  test-ssh:
     runs-on: ubuntu-latest
-
     steps:
-    # 1. 코드 체크아웃: 저장소의 코드를 워크플로우 실행 환경으로 가져옴
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    # 2. SSH 접속 및 배포 스크립트 실행
-    - name: Deploy to EC2 Instance via SSH
-      # SSH 접속 및 원격 명령어 실행을 위한 GitHub Action 사용
-      uses: appleboy/ssh-action@master
+    - name: Test SSH Connection to EC2
+      uses: appleboy/ssh-action@master # 또는 @master
       with:
-        # GitHub Secrets 에서 EC2 접속 정보 가져오기
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
-        port: 22 # SSH 기본 포트
-        debug: true # <<<<< SSH 상세 로깅 활성화
-        script: | # EC2 인스턴스에서 실행할 명령어들
-          echo "Connecting to EC2 instance..."
-          # 프로젝트 폴더로 이동 (경로는 실제 EC2 인스턴스 내 경로로 수정 필요)
-          cd C:/Projects/Capstone-4-1-fastapi # 예시 경로, 실제 경로로 수정!
-          echo "Pulling latest code from Git..."
-          # Git 저장소에서 최신 코드 가져오기
-          git pull origin master
-          echo "Activating virtual environment..."
-          # 가상 환경 활성화 (PowerShell 기준, CMD 경우 경로 다름)
-          # 주의: SSH 세션에서는 venv 활성화가 직접 적용되지 않을 수 있음
-          # 따라서 pip 과 python 명령어에 직접 경로를 지정하는 것이 더 안전할 수 있음
-          echo "Installing/updating dependencies..."
-          # 가상 환경의 pip 로 requirements.txt 설치
-          # 아래 두 줄 코드 중 오류 발생 시 전체 경로 사용: 
-          ./venv/Scripts/python.exe -m pip install -r requirements.txt
-          # ./venv/Scripts/pip install -r requirements.txt
-          echo "Restarting FastAPI service via NSSM..."
-          # NSSM 서비스 재시작 (서비스 이름은 Secret 에서 가져옴)
-          # NSSM 경로가 PATH에 없으면 전체 경로 지정 필요 (예: C:/NSSM/nssm.exe)
-          nssm restart ${{ secrets.NSSM_SERVICE_NAME }}
-          echo "Deployment script finished."
+        port: 22
+        debug: true
+        script: |
+          echo "Attempting to connect via SSH..."
+          echo "Connection successful! Current user is $(whoami)"
+          echo "Current directory is $(pwd)"
+          echo "Listing files in current directory:"
+          ls -la
