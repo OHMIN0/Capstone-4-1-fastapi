@@ -27,6 +27,7 @@ jobs:
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
         port: 22 # SSH 기본 포트
+        debug: true # <<<<< SSH 상세 로깅 활성화
         script: | # EC2 인스턴스에서 실행할 명령어들
           echo "Connecting to EC2 instance..."
           # 프로젝트 폴더로 이동 (경로는 실제 EC2 인스턴스 내 경로로 수정 필요)
