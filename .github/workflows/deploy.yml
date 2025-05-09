@@ -34,15 +34,16 @@ jobs:
           cd C:/Projects/Capstone-4-1-fastapi # 예시 경로, 실제 경로로 수정!
           echo "Pulling latest code from Git..."
           # Git 저장소에서 최신 코드 가져오기
-          git pull origin main
+          git pull origin master
           echo "Activating virtual environment..."
           # 가상 환경 활성화 (PowerShell 기준, CMD 경우 경로 다름)
           # 주의: SSH 세션에서는 venv 활성화가 직접 적용되지 않을 수 있음
           # 따라서 pip 과 python 명령어에 직접 경로를 지정하는 것이 더 안전할 수 있음
           echo "Installing/updating dependencies..."
           # 가상 환경의 pip 로 requirements.txt 설치
-          # 오류 발생 시 전체 경로 사용: ./venv/Scripts/python.exe -m pip install -r requirements.txt
-          ./venv/Scripts/pip install -r requirements.txt
+          # 아래 두 줄 코드 중 오류 발생 시 전체 경로 사용: 
+          ./venv/Scripts/python.exe -m pip install -r requirements.txt
+          # ./venv/Scripts/pip install -r requirements.txt
           echo "Restarting FastAPI service via NSSM..."
           # NSSM 서비스 재시작 (서비스 이름은 Secret 에서 가져옴)
           # NSSM 경로가 PATH에 없으면 전체 경로 지정 필요 (예: C:/NSSM/nssm.exe)
