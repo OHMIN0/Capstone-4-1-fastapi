@@ -20,7 +20,7 @@ jobs:
     # 2. SSH 접속 및 배포 스크립트 실행
     - name: Deploy to EC2 Instance via SSH
       # SSH 접속 및 원격 명령어 실행을 위한 GitHub Action 사용
-      uses: appleboy/ssh-action@v1.0.3
+      uses: appleboy/ssh-action@master
       with:
         # GitHub Secrets 에서 EC2 접속 정보 가져오기
         host: ${{ secrets.EC2_HOST }}
