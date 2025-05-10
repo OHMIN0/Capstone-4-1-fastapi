@@ -1,5 +1,4 @@
 # file_to_features.py
-# 얘네는 저도 그냥 올려놔주셨던거 다운받아서 코드에 맞춰 수정해달라고만 요청했던 애들이라...
 
 import os
 import time
@@ -14,7 +13,7 @@ from typing import Dict, Any, List, Tuple
 from functools import lru_cache # 간단한 캐싱을 위해 추가
 
 # ====== 설정 (YARA 룰 경로) ======
-YARA_RULES_DIR = "yara_rules"
+YARA_RULES_DIR = "yara_rules" # yara_rules 폴더는 프로젝트 루트에 위치해야 함
 CAPABILITIES_RULES_FILE = os.path.join(YARA_RULES_DIR, 'capabilities.yar')
 PACKER_RULES_FILE = os.path.join(YARA_RULES_DIR, 'packer_compiler_signatures.yar')
 
@@ -24,7 +23,7 @@ PACKER_RULES_FILE = os.path.join(YARA_RULES_DIR, 'packer_compiler_signatures.yar
 def compile_yara_rules(filepath: str):
     """주어진 경로의 YARA 룰을 컴파일합니다. 실패 시 None 반환 및 경고 출력."""
     try:
-        # Dockerfile에서 yara_rules 폴더를 복사했는지 확인 필요
+        # yara_rules 폴더와 해당 파일이 존재하는지 확인
         if not os.path.exists(filepath):
             print(f"[WARN] YARA rule file not found: {filepath}. Rule matching will be skipped.")
             return None
@@ -50,7 +49,6 @@ all_capabilities = [
 ]
 
 # ====== 특징 추출 헬퍼 함수들 (안정성 개선) ======
-# (이전 '개선됨' 버전의 함수들 사용)
 def get_characteristics_list(binary: lief.PE.Binary) -> List[str]:
     """lief 바이너리 객체에서 DLL 특성 리스트를 문자열로 반환합니다."""
     try:
@@ -215,7 +213,6 @@ def extract_features_for_file(input_file_path: str) -> Tuple[Dict[str, Any], str
             opt_header = pe.OPTIONAL_HEADER
             features['MajorLinkerVersion'] = getattr(opt_header, 'MajorLinkerVersion', 0)
             features['MinorLinkerVersion'] = getattr(opt_header, 'MinorLinkerVersion', 0)
-            # ... (기타 Optional Header 필드) ...
             features['SizeOfUninitializedData'] = getattr(opt_header, 'SizeOfUninitializedData', 0)
             features['ImageBase'] = getattr(opt_header, 'ImageBase', 0)
             features['FileAlignment'] = getattr(opt_header, 'FileAlignment', 0)
@@ -274,7 +271,7 @@ def extract_features_for_file(input_file_path: str) -> Tuple[Dict[str, Any], str
                 for cap in all_capabilities:
                     # setdefault 를 사용하여 키가 없는 경우에도 오류 없이 0으로 설정
                     features.setdefault(cap, int(cap in matched_names))
-            except yara.Error as e:
+            except yara.Error as e: # yara 관련 오류 명시적 처리
                 print(f"[WARN] YARA matching error (capabilities) for {filename}: {e}")
                 for cap in all_capabilities: features.setdefault(cap, -1)
             except Exception as e:
@@ -285,7 +282,7 @@ def extract_features_for_file(input_file_path: str) -> Tuple[Dict[str, Any], str
              for cap in all_capabilities: features.setdefault(cap, -1)
 
         # 추가 분석 플래그 (lief 사용, binary 객체 None 체크 추가)
-        if binary:
+        if binary: # lief 파싱 성공 시에만 시도
             features['has_manifest'] = has_manifest(binary)
             features['has_aslr'] = has_aslr(binary)
             features['has_tls'] = has_tls(binary)
