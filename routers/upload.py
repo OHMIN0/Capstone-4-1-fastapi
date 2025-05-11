@@ -32,7 +32,7 @@ async def upload_and_analyze_file(request: Request, peFile: UploadFile = File(..
     """
     ensure_upload_dir_exists() # 업로드 디렉토리 확인 및 생성
 
-    # 업로드받은 pe파일명을 그대로 백엔드에서 사용될 파일명으로 활용하기 위함
+    # 업로드받은 pe파일명을 그대로 서버에서 사용할 파일명으로 활용하기 위함
     original_filename = peFile.filename
 
     # 업로드된 파일을 저장할 전체 경로 생성
