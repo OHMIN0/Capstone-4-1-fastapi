@@ -85,6 +85,7 @@ def run_analysis(file_path: str) -> Dict[str, Any]:
     success: bool = False
     message: str = ""
     is_malicious: bool | None = None # AI 예측 결과 (악성이면 True, 정상이면 False)
+    confidence: float | None = None # 정확도(확신도) 변수 추가
 
     try:
         # 1. 특징 추출
@@ -104,8 +105,21 @@ def run_analysis(file_path: str) -> Dict[str, Any]:
                         prediction = model.predict(model_input_df)
                         is_malicious = bool(prediction[0] == 1) # 모델 출력이 1이면 악성으로 가정
 
-                        message = f"특징 추출 및 AI 분석 완료. 예측 결과: {'악성 파일 의심' if is_malicious else '정상 파일로 판단됨'}"
+                        # 모델 확신도(정확도) 확률
+                        if hasattr(model, "predict_proba"):
+                            probabilities = model.predict_proba(model_input_df)
+                           
+                            if is_malicious:
+                                confidence = float(probabilities[0][1]) # Probability of being malicious
+                            else:
+                                confidence = float(probabilities[0][0]) # Probability of being normal
+                            
+                            message = f"특징 추출 및 AI 분석 완료. 예측 결과: {'악성 파일 의심' if is_malicious else '정상 파일로 판단됨'} (신뢰도: {confidence:.2%})"
+                        else:
+                            # Fallback if predict_proba is not available
+                            message = f"특징 추출 및 AI 분석 완료. 예측 결과: {'악성 파일 의심' if is_malicious else '정상 파일로 판단됨'} (신뢰도 확인 불가)"
                         success = True
+
                     else:
                         message = "특징 추출은 성공했으나, AI 입력을 위한 전처리 중 오류 발생."
                         is_malicious = None
@@ -147,5 +161,6 @@ def run_analysis(file_path: str) -> Dict[str, Any]:
         "success": success,
         "message": message,
         "is_malicious": is_malicious,
+        "confidence": confidence
     }
     return final_result

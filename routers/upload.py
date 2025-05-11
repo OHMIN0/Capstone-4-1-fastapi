@@ -59,15 +59,9 @@ async def upload_and_analyze_file(request: Request, peFile: UploadFile = File(..
             "success": analysis_result.get("success", False), # run_analysis 결과의 success 값 사용 (없으면 False)
             "message": analysis_result.get("message", "분석 완료 (상세 메시지 없음)"), # run_analysis 결과의 message 사용
             "is_malicious": analysis_result.get("is_malicious"), # run_analysis 결과의 is_malicious 값 (없으면 None)
-            # 필요 시 다른 최소한의 정보 추가 가능 (예: 분석했던 파일명 등)
+            "confidence": analysis_result.get("confidence"), # <<<<< analysis_result에서 confidence 값 가져오기
             "filename": original_filename
         }
-        # 추후 run_analysis() 자체가 is_malicious 만 반환하도록 수정된다면, 아래와 같은 식으로 수정해도 됨
-        # api_response = {
-        #     "success": True,                                          # 분석 함수가 오류 없이 반환되면 성공으로 간주
-        #     "message": f"파일 '{original_filename}' 분석 완료.",       # 어차피 도중에 오류가 없었다면 분석이 성공한것이므로, 분석완료를 띄움
-        #     "is_malicious": analysis_result                           # run_analysis 가 is_malicious 값만 반환한다고 가정
-        # }
 
     except Exception as e:
         # 파일 저장 또는 run_analysis 호출 중 예외 발생 시
@@ -77,6 +71,7 @@ async def upload_and_analyze_file(request: Request, peFile: UploadFile = File(..
             "success": False,
             "message": f"파일 처리 또는 분석 중 오류 발생: {e}",
             "is_malicious": None, # 오류 시 악성 여부 알 수 없음
+            "confidence": None,
             "filename": original_filename
         }
     
