@@ -26,24 +26,24 @@ try:
     # 모델 로드
     if os.path.exists(MODEL_PATH):
         model = joblib.load(MODEL_PATH)
-        print(f"[INFO] AI 모델 로드 성공: {MODEL_PATH}")
+        print(f"[INFO] AI Model Loaded Successful: {MODEL_PATH}")
     else:
-        print(f"[ERROR] AI 모델 파일을 찾을 수 없습니다: {MODEL_PATH}. 예측 기능이 비활성화됩니다.")
+        print(f"[ERROR] AI Model File Not Found: {MODEL_PATH}. Prediction feature will be disabled.")
 
     # 학습 시 사용된 특징 컬럼 리스트 로드
     if os.path.exists(FEATURE_COLUMNS_PATH):
         FEATURE_COLUMNS = joblib.load(FEATURE_COLUMNS_PATH)
         if FEATURE_COLUMNS and isinstance(FEATURE_COLUMNS, list):
-            print(f"[INFO] 특징 컬럼 리스트 로드 성공. 컬럼 수: {len(FEATURE_COLUMNS)}")
+            print(f"[INFO] Feature columns list loaded successfully. Number of columns: {len(FEATURE_COLUMNS)}")
         else:
-            print(f"[WARN] 특징 컬럼 리스트 파일이 비어있거나 유효하지 않습니다: {FEATURE_COLUMNS_PATH}")
+            print(f"[WARN] Feature columns list file is empty or invalid: {FEATURE_COLUMNS_PATH}")
             model = None # 특징 정보 없으면 모델 사용 불가
     else:
-        print(f"[ERROR] 특징 컬럼 리스트 파일을 찾을 수 없습니다: {FEATURE_COLUMNS_PATH}. 예측 기능이 비활성화됩니다.")
+        print(f"[ERROR] Feature columns list file not found: {FEATURE_COLUMNS_PATH}. Prediction feature will be disabled.")
         model = None # 특징 정보 없으면 모델 사용 불가
 
 except Exception as load_e:
-    print(f"[ERROR] 모델 또는 관련 객체 로딩 중 오류 발생: {load_e}")
+    print(f"[ERROR] Error during model or related object loading: {load_e}")
     model = None # 로딩 실패 시 모델 사용 불가
 
 # --- 특징 전처리 함수 ---
@@ -53,7 +53,7 @@ def preprocess_features_for_model(features_dict: Dict[str, Any], trained_feature
     학습 시 사용된 특징만 선택하고 순서를 맞춥니다.
     """
     if not trained_feature_columns:
-        print("[ERROR] 학습에 사용된 특징 컬럼 정보가 없습니다. 전처리를 수행할 수 없습니다.")
+        print("[ERROR] Trained feature column information not available. Preprocessing cannot be performed.")
         return None
     try:
         # 모델 학습에 사용된 특징만, 학습 시 순서대로 선택/정렬
@@ -63,7 +63,7 @@ def preprocess_features_for_model(features_dict: Dict[str, Any], trained_feature
             try:
                 model_input_data[col] = float(value)
             except (ValueError, TypeError):
-                print(f"[WARN] 전처리 중 특징 '{col}'의 값 '{value}'를 float으로 변환할 수 없어 0.0으로 대체합니다.")
+                print(f"[WARN] During preprocessing, value '{value}' for feature '{col}' could not be converted to float, using 0.0.")
                 model_input_data[col] = 0.0
         
         model_input_df = pd.DataFrame([model_input_data], columns=trained_feature_columns)
@@ -71,7 +71,7 @@ def preprocess_features_for_model(features_dict: Dict[str, Any], trained_feature
         return model_input_df
 
     except Exception as e:
-        print(f"[ERROR] 특징 전처리 중 오류 발생: {e}")
+        print(f"[ERROR] Error during feature preprocessing: {e}")
         return None
 
 # run_analysis 함수
