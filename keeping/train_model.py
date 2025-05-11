@@ -14,7 +14,7 @@ import os
 import numpy as np
 
 # --- 설정 ---
-CSV_FILE_PATH = 'features.csv' # 원본 특징 데이터 CSV 파일 경로 (사용자가 업로드한 파일)
+CSV_FILE_PATH = 'static_modified.csv' # 원본 특징 데이터 CSV 파일 경로 (사용자가 업로드한 파일)
 MODEL_SAVE_DIR = 'models'      # 관련 객체를 저장할 디렉토리
 # MODEL_FILENAME = 'lightgbm_static_model.joblib' # 모델 저장 생략
 FEATURE_COLUMNS_FILENAME = 'feature_columns.joblib' # 학습에 사용될 특징 리스트 파일명
@@ -44,6 +44,8 @@ if "filename" in df.columns:
     df = df.drop(columns=["filename"])
 if "sha256" in df.columns:
     df = df.drop(columns=["sha256"])
+if "id" in df.columns:
+    df = df.drop(columns=["id"])
 
 if 'family' in df.columns:
     df['label'] = df['family'].apply(lambda x: 0 if x == 0 else 1)
