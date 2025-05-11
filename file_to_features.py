@@ -5,12 +5,12 @@ import time
 import pandas as pd
 import datetime
 import hashlib
-import pefile
-import lief
-import yara # yara(c)가 아닌, yara-python을 설치한 상태지만, import할때는 yara로 작성해야지 정상적으로 작동함.
-from signify.authenticode import SignedPEFile
+import pefile # type: ignore
+import lief # type: ignore
+import yara # type: ignore
+from signify.authenticode import SignedPEFile # type: ignore
 from typing import Dict, Any, List, Tuple
-from functools import lru_cache # 간단한 캐싱을 위해 추가
+from functools import lru_cache
 
 # ====== 설정 (YARA 룰 경로) ======
 YARA_RULES_DIR = "yara_rules" # yara_rules 폴더는 프로젝트 루트에 위치해야 함
@@ -18,7 +18,7 @@ CAPABILITIES_RULES_FILE = os.path.join(YARA_RULES_DIR, 'capabilities.yar')
 PACKER_RULES_FILE = os.path.join(YARA_RULES_DIR, 'packer_compiler_signatures.yar')
 
 # ====== YARA 룰 컴파일 함수 (캐싱 사용) ======
-@lru_cache(maxsize=2)
+@lru_cache(maxsize=2) # 최대 2개 룰셋 캐싱
 def compile_yara_rules(filepath: str):
     """주어진 경로의 YARA 룰을 컴파일합니다. 실패 시 None 반환 및 경고 출력."""
     try:
@@ -28,8 +28,11 @@ def compile_yara_rules(filepath: str):
         compiled_rules = yara.compile(filepath=filepath)
         print(f"[INFO] YARA rule compiled successfully: {filepath}")
         return compiled_rules
-    except Exception as e:
+    except yara.Error as e: # yara.Error를 명시적으로 처리
         print(f"[ERROR] Failed to compile YARA rule {filepath}: {e}")
+        return None
+    except Exception as e: # 그 외 일반적인 예외
+        print(f"[ERROR] An unexpected error occurred while compiling YARA rule {filepath}: {e}")
         return None
 
 # ====== Capabilities 정의 ======
@@ -45,9 +48,8 @@ all_capabilities = [
     'Str_Win32_Internet_API', 'Str_Win32_Http_API', 'ldpreload', 'mysql_database_presence'
 ]
 
-# ====== 특징 추출 헬퍼 함수들 (안정성 개선) ======
-def get_characteristics_list(binary: lief.PE.Binary) -> List[str]:
-    """lief 바이너리 객체에서 DLL 특성 리스트를 문자열로 반환합니다."""
+# ====== 특징 추출 헬퍼 함수들 (PEFileAn 클래스 외부로 분리) ======
+def _get_characteristics_list(binary: lief.PE.Binary) -> List[str]:
     try:
         if (binary and hasattr(binary, 'optional_header') and
                 isinstance(binary.optional_header, lief.PE.OptionalHeader) and
@@ -56,54 +58,10 @@ def get_characteristics_list(binary: lief.PE.Binary) -> List[str]:
             return [str(x).split('.')[-1] for x in binary.optional_header.dll_characteristics]
         return []
     except Exception as e:
-        print(f"[WARN] Failed to get characteristics list: {e}")
+        print(f"[WARN] Helper: Failed to get characteristics list for {binary.name if binary else 'binary'}: {e}")
         return []
 
-def has_manifest(binary: lief.PE.Binary) -> int:
-    """리소스 매니저와 매니페스트 존재 여부를 반환합니다."""
-    try:
-        return int(binary and binary.has_resources and hasattr(binary, 'resources_manager') and binary.resources_manager.has_manifest)
-    except Exception as e:
-        print(f"[WARN] Failed to check manifest: {e}")
-        return -1
-
-def has_aslr(binary: lief.PE.Binary) -> int:
-    """ASLR 지원 여부를 반환합니다."""
-    return int("DYNAMIC_BASE" in get_characteristics_list(binary))
-
-def has_tls(binary: lief.PE.Binary) -> int:
-    """TLS 사용 여부를 반환합니다."""
-    try:
-        return int(binary and binary.has_tls)
-    except Exception as e:
-        print(f"[WARN] Failed to check TLS: {e}")
-        return -1
-
-def has_dep(binary: lief.PE.Binary) -> int:
-    """DEP 지원 여부를 반환합니다."""
-    return int("NX_COMPAT" in get_characteristics_list(binary))
-
-def check_ci(binary: lief.PE.Binary) -> int:
-    """Code Integrity 확인."""
-    try:
-        if binary and binary.has_configuration:
-            config = binary.load_configuration
-            if isinstance(config, tuple(getattr(lief.PE, f'LoadConfigurationV{i}') for i in range(2, 12) if hasattr(lief.PE, f'LoadConfigurationV{i}'))) and hasattr(config, 'code_integrity'):
-                return 1
-            else:
-                 return 0
-        return -1
-    except Exception as e:
-        print(f"[WARN] Failed to check Code Integrity: {e}")
-        return -1
-
-def supports_cfg(binary: lief.PE.Binary) -> int:
-    """Control Flow Guard 지원 여부를 반환합니다."""
-    return int("GUARD_CF" in get_characteristics_list(binary))
-
-# suspicious_dbgts 함수 정의 복구
-def suspicious_dbgts(binary: lief.PE.Binary) -> int:
-    """디버그 타임스탬프가 미래 시점인지 확인합니다."""
+def _suspicious_dbgts(binary: lief.PE.Binary) -> int: # 이 함수는 유지
     try:
         if binary and binary.has_debug:
             for item in binary.debug:
@@ -111,43 +69,41 @@ def suspicious_dbgts(binary: lief.PE.Binary) -> int:
                     ts = item.timestamp
                     dbg_time = datetime.datetime.fromtimestamp(ts)
                     if dbg_time > datetime.datetime.now():
-                        return 1 # 미래 시점이면 1 반환
-            return 0 # 해당 사항 없으면 0 반환
-        return -1 # 디버그 정보가 없으면 -1 반환
-    except OverflowError: # 타임스탬프 값이 너무 크거나 작아서 datetime 변환이 불가능한 경우
-        print(f"[WARN] Debug timestamp value out of range for {binary.name if binary else 'binary'}.")
+                        return 1
+            return 0
+        return -1
+    except OverflowError:
+        print(f"[WARN] Helper: Debug timestamp value out of range for {binary.name if binary else 'binary'}.")
         return -1
     except Exception as e:
-        print(f"[WARN] Failed to check debug timestamp for {binary.name if binary else 'binary'}: {e}")
+        print(f"[WARN] Helper: Failed to check debug timestamp for {binary.name if binary else 'binary'}: {e}")
         return -1
 
-def is_signed(filename: str) -> int:
-    """signify 라이브러리를 사용하여 파일 서명 여부를 확인합니다."""
+def _is_signed(filename: str) -> int:
     try:
         with open(filename, "rb") as f:
             signed_pe = SignedPEFile(f)
-            return 1 if signed_pe.signed else 0
+            status, _ = signed_pe.explain_verify()
+            return {1: 1, 2: 0}.get(status.value, -1)
     except Exception as e:
-        print(f"[WARN] Failed to check signature for {os.path.basename(filename)}: {e}")
+        print(f"[WARN] Helper: Failed to check signature for {os.path.basename(filename)}: {e}")
         return -1
 
-def is_packed(filename: str) -> int:
-    """YARA 룰을 사용하여 패킹 여부를 확인합니다 (내부에서 룰 컴파일)."""
+def _is_packed(filename: str) -> int:
     packer_rules = compile_yara_rules(PACKER_RULES_FILE)
     if packer_rules is None:
         return -1
     try:
         matches = packer_rules.match(filename)
-        return int(any(m.tags and 'packer' in m.tags for m in matches))
+        return int('IsPacked' in [m.rule for m in matches if hasattr(m, 'rule')])
     except yara.Error as e:
-        print(f"[WARN] YARA matching error (packer) for {os.path.basename(filename)}: {e}")
+        print(f"[WARN] Helper: YARA matching error (packer) for {os.path.basename(filename)}: {e}")
         return -1
     except Exception as e:
-        print(f"[WARN] Failed to check packing for {os.path.basename(filename)}: {e}")
+        print(f"[WARN] Helper: Failed to check packing for {os.path.basename(filename)}: {e}")
         return -1
 
-def calculate_sha256(filename: str) -> str:
-    """파일의 SHA256 해시를 계산합니다."""
+def _calculate_sha256(filename: str) -> str:
     sha256 = hashlib.sha256()
     try:
         with open(filename, 'rb') as f:
@@ -155,136 +111,150 @@ def calculate_sha256(filename: str) -> str:
                 sha256.update(block)
         return sha256.hexdigest()
     except Exception as e:
-        print(f"[ERROR] Failed to calculate SHA256 for {os.path.basename(filename)}: {e}")
+        print(f"[ERROR] Helper: Failed to calculate SHA256 for {os.path.basename(filename)}: {e}")
         return "error_calculating_hash"
 
-# ====== 메인 특징 추출 및 저장 함수 ======
-def extract_features_for_file(input_file_path: str) -> Tuple[Dict[str, Any], str | None]:
-    """
-    주어진 단일 PE 파일 경로로부터 특징을 추출하고, 결과를 딕셔너리로 반환하며,
-    동일 디렉토리에 CSV 파일로 저장합니다. (지정된 열 순서 적용)
-    """
-    features: Dict[str, Any] = {}
-    output_csv_path: str | None = None
-    filename = os.path.basename(input_file_path)
-    start_time = time.time() # 함수 시작 시간 기록
+# ====== PEFile 분석 클래스 (사용자 제공 코드 기반) ======
+class PEFileAn:
+    def __init__(self, filename_path: str):
+        self.features: Dict[str, Any] = {}
+        self.filename = os.path.basename(filename_path)
+        self.features['filename'] = self.filename
 
-    capabilities_rules = compile_yara_rules(CAPABILITIES_RULES_FILE)
-
-    try:
-        print(f"[INFO] Processing: {filename}")
         binary: lief.PE.Binary | None = None
         pe: pefile.PE | None = None
 
         try:
-            binary = lief.parse(input_file_path)
+            print(f"[INFO] PEFileAn: Parsing {self.filename} with lief...")
+            binary = lief.parse(filename_path)
             if binary is None:
-                 print(f"[WARN] Lief parse failed for {filename}.")
+                print(f"[WARN] PEFileAn: Lief parse failed for {self.filename}.")
         except lief.bad_file as e:
-             print(f"[WARN] Lief bad_file error for {filename}: {e}")
+            print(f"[WARN] PEFileAn: Lief bad_file error for {self.filename}: {e}")
         except FileNotFoundError:
-             print(f"[ERROR] Input file not found for lief: {input_file_path}")
-             raise
+            print(f"[ERROR] PEFileAn: Input file not found for lief: {filename_path}")
+            raise
         except Exception as e:
-             print(f"[WARN] Error parsing with lief for {filename}: {e}")
+            print(f"[WARN] PEFileAn: Error parsing with lief for {self.filename}: {e}")
 
         try:
-            pe = pefile.PE(input_file_path, fast_load=False)
+            print(f"[INFO] PEFileAn: Loading {self.filename} with pefile...")
+            pe = pefile.PE(filename_path, fast_load=False)
         except pefile.PEFormatError as e:
-            print(f"[WARN] pefile PEFormatError for {filename}: {e}")
+            print(f"[WARN] PEFileAn: pefile PEFormatError for {self.filename}: {e}")
         except FileNotFoundError:
-             print(f"[ERROR] Input file not found for pefile: {input_file_path}")
-             raise
+            print(f"[ERROR] PEFileAn: Input file not found for pefile: {filename_path}")
+            raise
         except Exception as e:
-            print(f"[WARN] Error loading with pefile for {filename}: {e}")
+            print(f"[WARN] PEFileAn: Error loading with pefile for {self.filename}: {e}")
 
-        features['filename'] = filename
-        features['sha256'] = calculate_sha256(input_file_path)
-        features['isSigned'] = is_signed(input_file_path)
-        features['isPacked'] = is_packed(input_file_path)
+        self.features['sha256'] = _calculate_sha256(filename_path)
+        self.features['isSigned'] = _is_signed(filename_path)
+        self.features['isPacked'] = _is_packed(filename_path)
 
         if pe and hasattr(pe, 'OPTIONAL_HEADER') and pe.OPTIONAL_HEADER:
             opt_header = pe.OPTIONAL_HEADER
-            features['MajorLinkerVersion'] = getattr(opt_header, 'MajorLinkerVersion', 0)
-            features['MinorLinkerVersion'] = getattr(opt_header, 'MinorLinkerVersion', 0)
-            features['SizeOfUninitializedData'] = getattr(opt_header, 'SizeOfUninitializedData', 0)
-            features['ImageBase'] = getattr(opt_header, 'ImageBase', 0)
-            features['FileAlignment'] = getattr(opt_header, 'FileAlignment', 0)
-            features['MajorOperatingSystemVersion'] = getattr(opt_header, 'MajorOperatingSystemVersion', 0)
-            features['MajorImageVersion'] = getattr(opt_header, 'MajorImageVersion', 0)
-            features['MinorImageVersion'] = getattr(opt_header, 'MinorImageVersion', 0)
-            features['MajorSubsystemVersion'] = getattr(opt_header, 'MajorSubsystemVersion', 0)
-            features['SizeOfImage'] = getattr(opt_header, 'SizeOfImage', 0)
-            features['SizeOfHeaders'] = getattr(opt_header, 'SizeOfHeaders', 0)
-            features['CheckSum'] = getattr(opt_header, 'CheckSum', 0)
-            features['Subsystem'] = getattr(opt_header, 'Subsystem', 0)
-            features['DllCharacteristics'] = getattr(opt_header, 'DllCharacteristics', 0)
-            features['SizeOfStackReserve'] = getattr(opt_header, 'SizeOfStackReserve', 0)
-            features['SizeOfHeapReserve'] = getattr(opt_header, 'SizeOfHeapReserve', 0)
-            features['BaseOfData'] = getattr(opt_header, 'BaseOfData', 0)
+            self.features['MajorLinkerVersion'] = getattr(opt_header, 'MajorLinkerVersion', 0)
+            self.features['MinorLinkerVersion'] = getattr(opt_header, 'MinorLinkerVersion', 0)
+            self.features['SizeOfUninitializedData'] = getattr(opt_header, 'SizeOfUninitializedData', 0)
+            self.features['ImageBase'] = getattr(opt_header, 'ImageBase', 0)
+            self.features['FileAlignment'] = getattr(opt_header, 'FileAlignment', 0)
+            self.features['MajorOperatingSystemVersion'] = getattr(opt_header, 'MajorOperatingSystemVersion', 0)
+            self.features['MajorImageVersion'] = getattr(opt_header, 'MajorImageVersion', 0)
+            self.features['MinorImageVersion'] = getattr(opt_header, 'MinorImageVersion', 0)
+            self.features['MajorSubsystemVersion'] = getattr(opt_header, 'MajorSubsystemVersion', 0)
+            self.features['SizeOfImage'] = getattr(opt_header, 'SizeOfImage', 0)
+            self.features['SizeOfHeaders'] = getattr(opt_header, 'SizeOfHeaders', 0)
+            self.features['CheckSum'] = getattr(opt_header, 'CheckSum', 0)
+            self.features['Subsystem'] = getattr(opt_header, 'Subsystem', 0)
+            self.features['DllCharacteristics'] = getattr(opt_header, 'DllCharacteristics', 0)
+            self.features['SizeOfStackReserve'] = getattr(opt_header, 'SizeOfStackReserve', 0)
+            self.features['SizeOfHeapReserve'] = getattr(opt_header, 'SizeOfHeapReserve', 0)
+            self.features['BaseOfData'] = getattr(opt_header, 'BaseOfData', 0)
         else:
-            if pe: print(f"[WARN] Optional Header not found or invalid in {filename}")
+            if pe: print(f"[WARN] PEFileAn: Optional Header not found or invalid in {self.filename}")
             optional_header_fields = ['MajorLinkerVersion', 'MinorLinkerVersion', 'SizeOfUninitializedData', 'ImageBase', 'FileAlignment', 'MajorOperatingSystemVersion', 'MajorImageVersion', 'MinorImageVersion', 'MajorSubsystemVersion', 'SizeOfImage', 'SizeOfHeaders', 'CheckSum', 'Subsystem', 'DllCharacteristics', 'SizeOfStackReserve', 'SizeOfHeapReserve', 'BaseOfData']
-            for field in optional_header_fields: features.setdefault(field, 0)
+            for field in optional_header_fields: self.features.setdefault(field, 0)
 
         if pe and hasattr(pe, 'FILE_HEADER') and pe.FILE_HEADER:
             file_header = pe.FILE_HEADER
-            features['NumberOfSections'] = getattr(file_header, 'NumberOfSections', 0)
-            features['Characteristics'] = getattr(file_header, 'Characteristics', 0)
+            self.features['NumberOfSections'] = getattr(file_header, 'NumberOfSections', 0)
+            self.features['Characteristics'] = getattr(file_header, 'Characteristics', 0)
         else:
-            if pe: print(f"[WARN] File Header not found or invalid in {filename}")
-            features.setdefault('NumberOfSections', 0)
-            features.setdefault('Characteristics', 0)
+            if pe: print(f"[WARN] PEFileAn: File Header not found or invalid in {self.filename}")
+            self.features.setdefault('NumberOfSections', 0)
+            self.features.setdefault('Characteristics', 0)
 
         if pe and hasattr(pe, 'DOS_HEADER') and pe.DOS_HEADER:
             dos_header = pe.DOS_HEADER
-            features['e_cblp'] = getattr(dos_header, 'e_cblp', 0)
-            features['e_lfanew'] = getattr(dos_header, 'e_lfanew', 0)
+            self.features['e_cblp'] = getattr(dos_header, 'e_cblp', 0)
+            self.features['e_lfanew'] = getattr(dos_header, 'e_lfanew', 0)
         else:
-             if pe: print(f"[WARN] DOS Header not found or invalid in {filename}")
-             features.setdefault('e_cblp', 0)
-             features.setdefault('e_lfanew', 0)
+             if pe: print(f"[WARN] PEFileAn: DOS Header not found or invalid in {self.filename}")
+             self.features.setdefault('e_cblp', 0)
+             self.features.setdefault('e_lfanew', 0)
 
         try:
             if pe and hasattr(pe, 'sections') and isinstance(pe.sections, list) and pe.sections:
-                features['SizeOfRawData'] = sum(getattr(s, 'SizeOfRawData', 0) for s in pe.sections)
-                features['Misc'] = sum(getattr(s, 'Misc_VirtualSize', 0) for s in pe.sections)
+                self.features['SizeOfRawData'] = sum(getattr(s, 'SizeOfRawData', 0) for s in pe.sections)
+                self.features['Misc'] = sum(getattr(s, 'Misc_VirtualSize', 0) for s in pe.sections)
             else:
-                features.setdefault('SizeOfRawData', 0)
-                features.setdefault('Misc', 0)
+                self.features.setdefault('SizeOfRawData', 0)
+                self.features.setdefault('Misc', 0)
         except Exception as e:
-            print(f"[WARN] Error calculating section features for {filename}: {e}")
-            features.setdefault('SizeOfRawData', 0)
-            features.setdefault('Misc', 0)
+            print(f"[WARN] PEFileAn: Error calculating section features for {self.filename}: {e}")
+            self.features.setdefault('SizeOfRawData', 0)
+            self.features.setdefault('Misc', 0)
 
+        capabilities_rules = compile_yara_rules(CAPABILITIES_RULES_FILE)
         if capabilities_rules:
             try:
-                matched = capabilities_rules.match(input_file_path)
+                matched = capabilities_rules.match(filename_path)
                 matched_names = [m.rule for m in matched if hasattr(m, 'rule')]
                 for cap in all_capabilities:
-                    features.setdefault(cap, int(cap in matched_names))
+                    self.features[cap] = int(cap in matched_names)
             except yara.Error as e:
-                print(f"[WARN] YARA matching error (capabilities) for {filename}: {e}")
-                for cap in all_capabilities: features.setdefault(cap, -1)
+                print(f"[WARN] PEFileAn: YARA matching error (capabilities) for {self.filename}: {e}")
+                for cap in all_capabilities: self.features.setdefault(cap, -1)
             except Exception as e:
-                print(f"[WARN] Failed to match capabilities rules for {filename}: {e}")
-                for cap in all_capabilities: features.setdefault(cap, -1)
+                print(f"[WARN] PEFileAn: Failed to match capabilities rules for {self.filename}: {e}")
+                for cap in all_capabilities: self.features.setdefault(cap, -1)
         else:
-             print("[WARN] Capabilities YARA rules not compiled/loaded. Skipping capabilities check.")
-             for cap in all_capabilities: features.setdefault(cap, -1)
+             print("[WARN] PEFileAn: Capabilities YARA rules not compiled/loaded. Skipping capabilities check.")
+             for cap in all_capabilities: self.features.setdefault(cap, -1)
 
+        # 추가 분석 플래그 (lief 사용) 
         if binary:
-            features['has_manifest'] = has_manifest(binary)
-            features['has_aslr'] = has_aslr(binary)
-            features['has_tls'] = has_tls(binary)
-            features['has_dep'] = has_dep(binary)
-            features['code_integrity'] = check_ci(binary)
-            features['supports_cfg'] = supports_cfg(binary)
-            features['suspicious_dbgts'] = suspicious_dbgts(binary) # suspicious_dbgts 호출 복구
+            self.features['suspicious_dbgts'] = _suspicious_dbgts(binary) # 이 특징은 유지
         else:
-            lief_flags = ['has_manifest', 'has_aslr', 'has_tls', 'has_dep', 'code_integrity', 'supports_cfg', 'suspicious_dbgts'] # suspicious_dbgts 포함
-            for flag in lief_flags: features.setdefault(flag, -1)
-            # features.setdefault('suspicious_dbgts', -1) # 이 줄은 위에서 처리되므로 중복
+            # lief_flags = ['has_manifest', 'has_aslr', 'has_tls', 'has_dep', 'code_integrity', 'supports_cfg', 'suspicious_dbgts'] # 수정
+            lief_flags = ['has_manifest', 'has_aslr', 'has_tls', 'has_dep', 'code_integrity', 'supports_cfg']
+            for flag in lief_flags:
+                self.features.setdefault(flag, -1) # 제거된 특징들도 기본값 -1로 설정 (CSV 컬럼 유지 시)
+                                                   # 또는 아예 features 딕셔너리에 추가하지 않을 수도 있음
+            self.features.setdefault('suspicious_dbgts', -1)
+
+
+        if pe and hasattr(pe, 'close'):
+            try:
+                pe.close()
+            except Exception as close_e:
+                 print(f"[WARN] PEFileAn: Error closing pefile object for {self.filename}: {close_e}")
+
+    def build(self) -> Dict[str, Any]:
+        return self.features
+
+# ====== 메인 특징 추출 및 저장 함수 (기존 프로젝트 구조와 호환) ======
+def extract_features_for_file(input_file_path: str) -> Tuple[Dict[str, Any], str | None]:
+    features: Dict[str, Any] = {}
+    output_csv_path: str | None = None
+    filename = os.path.basename(input_file_path)
+    start_time = time.time()
+
+    try:
+        print(f"[INFO] extract_features_for_file: Processing {filename}")
+        pe_analyzer = PEFileAn(input_file_path)
+        features = pe_analyzer.build()
 
         output_dir = os.path.dirname(input_file_path)
         output_csv_filename = f"{filename}_features.csv"
@@ -297,22 +267,10 @@ def extract_features_for_file(input_file_path: str) -> Tuple[Dict[str, Any], str
             "MajorSubsystemVersion", "SizeOfImage", "SizeOfHeaders", "CheckSum",
             "Subsystem", "DllCharacteristics", "SizeOfStackReserve", "SizeOfHeapReserve",
             "NumberOfSections", "e_cblp", "e_lfanew", "SizeOfRawData",
-            "Characteristics", "Misc", "BaseOfData", 'inject_thread', 'create_process',
-            'persistence', 'hijack_network', 'create_service', 'create_com_service',
-            'network_udp_sock', 'network_tcp_listen', 'network_dyndns', 'network_toredo',
-            'network_smtp_dotNet', 'network_smtp_raw', 'network_smtp_vb',
-            'network_p2p_win', 'network_tor', 'network_irc', 'network_http',
-            'network_dropper', 'network_ftp', 'network_tcp_socket', 'network_dns',
-            'network_ssl', 'network_dga', 'bitcoin', 'certificate', 'escalate_priv',
-            'screenshot', 'lookupip', 'dyndns', 'lookupgeo', 'keylogger',
-            'cred_local', 'sniff_audio', 'cred_ff', 'cred_vnc', 'cred_ie7',
-            'sniff_lan', 'migrate_apc', 'spreading_file', 'spreading_share',
-            'rat_vnc', 'rat_rdp', 'rat_telnet', 'rat_webcam', 'win_mutex',
-            'win_registry', 'win_token', 'win_private_profile', 'win_files_operation',
-            'Str_Win32_Winsock2_Library', 'Str_Win32_Wininet_Library',
-            'Str_Win32_Internet_API', 'Str_Win32_Http_API', 'ldpreload',
-            'mysql_database_presence', 'has_manifest', 'has_aslr', 'has_tls',
-            'has_dep', 'code_integrity', 'supports_cfg', 'suspicious_dbgts' # suspicious_dbgts 다시 추가
+            "Characteristics", "Misc", "BaseOfData"
+        ] + all_capabilities + [
+            # 'has_manifest', 'has_aslr', 'has_tls', 'has_dep', 'code_integrity', 'supports_cfg', # 제거
+            'suspicious_dbgts' # 이 특징은 유지
         ]
 
         try:
@@ -325,15 +283,11 @@ def extract_features_for_file(input_file_path: str) -> Tuple[Dict[str, Any], str
             output_csv_path = None
 
     except (ValueError, FileNotFoundError) as e:
-        print(f"[ERROR] Cannot process file {filename}: {e}")
+        print(f"[ERROR] Error initializing PEFileAn for {filename}: {e}")
         features['error'] = str(e)
     except Exception as e:
         print(f"[ERROR] Unexpected error processing {filename}: {e}")
         features['error'] = str(e)
-    finally:
-        if 'pe' in locals() and pe and hasattr(pe, 'close'):
-            try: pe.close()
-            except Exception as close_e: print(f"[WARN] Error closing pefile object: {close_e}")
 
     end_time = time.time()
     features['processing_time'] = round(end_time - start_time, 3)

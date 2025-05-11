@@ -1,69 +1,151 @@
 # analysis.py
 
 import time
-from typing import Dict, Any
+import os
+from typing import Dict, Any, List
+import joblib # 모델 및 객체 로드를 위해 추가
+import pandas as pd # 데이터프레임 사용을 위해 추가
+import numpy as np # 모델 입력을 위해 추가
+import lightgbm
 
 # 수정된 특징 추출 함수 임포트
-from file_to_features import extract_features_for_file
+from file_to_features import extract_features_for_file # suspicious_dbgts 포함된 버전 사용
 
-# run_analysis 함수를 동기 함수로 변경 (특징 추출이 동기 작업이므로)
+# --- AI 모델 및 관련 객체 로딩 ---
+MODEL_DIR = 'models' # 모델 파일이 저장된 디렉토리 (프로젝트 루트 기준)
+MODEL_FILENAME = 'lightgbm_static_model.joblib'
+FEATURE_COLUMNS_FILENAME = 'feature_columns.joblib' # 학습 시 사용된 특징 리스트 파일명
+
+MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILENAME)
+FEATURE_COLUMNS_PATH = os.path.join(MODEL_DIR, FEATURE_COLUMNS_FILENAME)
+
+model = None
+FEATURE_COLUMNS = None # 학습에 사용된 특징 이름 리스트
+
+try:
+    # 모델 로드
+    if os.path.exists(MODEL_PATH):
+        model = joblib.load(MODEL_PATH)
+        print(f"[INFO] AI 모델 로드 성공: {MODEL_PATH}")
+    else:
+        print(f"[ERROR] AI 모델 파일을 찾을 수 없습니다: {MODEL_PATH}. 예측 기능이 비활성화됩니다.")
+
+    # 학습 시 사용된 특징 컬럼 리스트 로드
+    if os.path.exists(FEATURE_COLUMNS_PATH):
+        FEATURE_COLUMNS = joblib.load(FEATURE_COLUMNS_PATH)
+        if FEATURE_COLUMNS and isinstance(FEATURE_COLUMNS, list):
+            print(f"[INFO] 특징 컬럼 리스트 로드 성공. 컬럼 수: {len(FEATURE_COLUMNS)}")
+        else:
+            print(f"[WARN] 특징 컬럼 리스트 파일이 비어있거나 유효하지 않습니다: {FEATURE_COLUMNS_PATH}")
+            model = None # 특징 정보 없으면 모델 사용 불가
+    else:
+        print(f"[ERROR] 특징 컬럼 리스트 파일을 찾을 수 없습니다: {FEATURE_COLUMNS_PATH}. 예측 기능이 비활성화됩니다.")
+        model = None # 특징 정보 없으면 모델 사용 불가
+
+except Exception as load_e:
+    print(f"[ERROR] 모델 또는 관련 객체 로딩 중 오류 발생: {load_e}")
+    model = None # 로딩 실패 시 모델 사용 불가
+
+# --- 특징 전처리 함수 ---
+def preprocess_features_for_model(features_dict: Dict[str, Any], trained_feature_columns: List[str]) -> pd.DataFrame | None:
+    """
+    추출된 특징 딕셔너리를 AI 모델 입력 형식(Pandas DataFrame)으로 변환합니다.
+    학습 시 사용된 특징만 선택하고 순서를 맞춥니다.
+    """
+    if not trained_feature_columns:
+        print("[ERROR] 학습에 사용된 특징 컬럼 정보가 없습니다. 전처리를 수행할 수 없습니다.")
+        return None
+    try:
+        # 모델 학습에 사용된 특징만, 학습 시 순서대로 선택/정렬
+        model_input_data = {}
+        for col in trained_feature_columns:
+            value = features_dict.get(col, 0) # 학습 시 사용된 특징이 없으면 0으로 채움
+            try:
+                model_input_data[col] = float(value)
+            except (ValueError, TypeError):
+                print(f"[WARN] 전처리 중 특징 '{col}'의 값 '{value}'를 float으로 변환할 수 없어 0.0으로 대체합니다.")
+                model_input_data[col] = 0.0
+        
+        model_input_df = pd.DataFrame([model_input_data], columns=trained_feature_columns)
+        
+        return model_input_df
+
+    except Exception as e:
+        print(f"[ERROR] 특징 전처리 중 오류 발생: {e}")
+        return None
+
+# run_analysis 함수
 def run_analysis(file_path: str) -> Dict[str, Any]:
     """
-    주어진 파일 경로에 대해 특징 추출을 수행하고,
-    분석 결과를 딕셔너리로 반환합니다.
-    Args:
-        file_path (str): 분석할 파일의 전체 경로
-
-    Returns:
-        Dict[str, Any]: 분석 결과 ('success', 'message', 'is_malicious' 포함)
+    주어진 파일 경로에 대해 특징 추출 및 AI 모델 예측을 수행하고 결과를 반환합니다.
     """
     print(f"[INFO] Analysis process started for: {file_path}")
-    start_time = time.time() # 시작 시간 기록
+    start_time = time.time()
 
-    # 최종 반환될 변수들 초기화
     success: bool = False
     message: str = ""
-    is_malicious: bool | None = None # AI 예측 결과 초기화
+    is_malicious: bool | None = None # AI 예측 결과 (악성이면 True, 정상이면 False)
 
-    # --- 특징 추출 로직 시작 ---
     try:
-        # file_to_features.py의 함수 호출하여 특징 추출 및 CSV 저장 시도
-        features_dict, csv_path = extract_features_for_file(file_path)
+        # 1. 특징 추출
+        features_dict, csv_path = extract_features_for_file(file_path) 
 
-        # 특징 추출 성공 여부 확인 후, 성공 메세지 출력
         if csv_path and 'error' not in features_dict:
-            print(f"[INFO] Feature extraction successful for: {file_path}. CSV saved at {csv_path}")
-            success = True
-            message = f"특징 추출 성공. (CSV: {csv_path})"
-            is_malicious = None     # AI 예측 결과는 현재 없으므로 None으로 설정
+            print(f"[INFO] Feature extraction successful. CSV: {csv_path}")
+
+            # 2. AI 모델 예측 (모델과 특징 컬럼 정보가 로드된 경우)
+            if model and FEATURE_COLUMNS:
+                try:
+                    # 특징 전처리
+                    model_input_df = preprocess_features_for_model(features_dict, FEATURE_COLUMNS)
+
+                    if model_input_df is not None and not model_input_df.empty:
+                        # 예측 수행
+                        prediction = model.predict(model_input_df)
+                        is_malicious = bool(prediction[0] == 1) # 모델 출력이 1이면 악성으로 가정
+
+                        message = f"특징 추출 및 AI 분석 완료. 예측 결과: {'악성 파일 의심' if is_malicious else '정상 파일로 판단됨'}"
+                        success = True
+                    else:
+                        message = "특징 추출은 성공했으나, AI 입력을 위한 전처리 중 오류 발생."
+                        is_malicious = None
+                        success = False 
+
+                except Exception as model_e:
+                    print(f"[ERROR] AI prediction step failed for {file_path}: {model_e}")
+                    success = False
+                    message = f"특징 추출은 성공했으나 AI 예측 중 오류 발생: {model_e}"
+                    is_malicious = None
+            else:
+                message = "특징 추출 성공. AI 모델 또는 특징 정보가 로드되지 않아 예측을 수행할 수 없습니다."
+                is_malicious = None # 모델 없으면 예측 불가
+                success = True # 특징 추출까지는 성공으로 간주
 
         else:
-            # 특징 추출 자체에서 실패한 경우
             error_msg = features_dict.get('error', "특징 추출 중 알 수 없는 오류 발생")
             print(f"[ERROR] Feature extraction failed for {file_path}: {error_msg}")
             success = False
             message = f"특징 추출 실패: {error_msg}"
             is_malicious = None
 
+    except FileNotFoundError as e:
+         print(f"[ERROR] File not found during analysis process for {file_path}: {e}")
+         success = False
+         message = f"분석할 파일을 찾을 수 없습니다: {e}"
+         is_malicious = None
     except Exception as e:
-        # 예기치 못한 오류 발생 시 (모듈 임포트 실패 등)
-        # FileNotFoundError도 그냥 여기에 한번에 처리해버리도록 합쳤어요 코드만 더 길어져보이길래
         print(f"[ERROR] Unexpected error during analysis process for {file_path}: {e}")
         success = False
         message = f"분석 프로세스 중 예외 발생: {e}"
         is_malicious = None
-    # --- 특징 추출 로직 끝 ---
 
-    # 나중에 아래 코드 변형해서 final_result에 포함시켜서 웹페이지에도 소모된 시간 출력해도될것같아요
     end_time = time.time()
     analysis_time = round(end_time - start_time, 3)
     print(f"[INFO] Analysis process finished for: {file_path}. Time taken: {analysis_time}s")
 
-    # 최종적으로 라우터에 전달할 결과 딕셔너리 구성
     final_result = {
         "success": success,
         "message": message,
-        "is_malicious": is_malicious, # 현재는 항상 None / 모델 합쳐지면 그때 수정 필요
+        "is_malicious": is_malicious,
     }
-
     return final_result
