@@ -7,13 +7,17 @@ import joblib # 모델 및 객체 로드를 위해 추가
 import pandas as pd # 데이터프레임 사용을 위해 추가
 import numpy as np # 모델 입력을 위해 추가
 import lightgbm
+import xgboost
+import catboost
 
 # 수정된 특징 추출 함수 임포트
 from file_to_features import extract_features_for_file # suspicious_dbgts 포함된 버전 사용
 
 # --- AI 모델 및 관련 객체 로딩 ---
 MODEL_DIR = 'models' # 모델 파일이 저장된 디렉토리 (프로젝트 루트 기준)
-MODEL_FILENAME = 'lightgbm_static_model.joblib'
+#MODEL_FILENAME = 'lightgbm_static_model.joblib'
+#MODEL_FILENAME = 'xgboost_static_model.joblib'
+MODEL_FILENAME = 'catboost_static_model.cbm'
 FEATURE_COLUMNS_FILENAME = 'feature_columns.joblib' # 학습 시 사용된 특징 리스트 파일명
 
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILENAME)
@@ -25,7 +29,15 @@ FEATURE_COLUMNS = None # 학습에 사용된 특징 이름 리스트
 try:
     # 모델 로드
     if os.path.exists(MODEL_PATH):
-        model = joblib.load(MODEL_PATH)
+        #=====================================================================#
+        # CatBoost 사용 시, 아래 코드 두줄의 주석을 해제하여 사용
+        model = catboost.CatBoostClassifier()   # CatBoost전용 호출 코드1
+        model.load_model(MODEL_PATH)            # CatBoost전용 호출 코드2
+        #=====================================================================#
+
+        # 아래 코드는 XgBoost / LightGBM 모델 호출 시 사용.
+        # model = joblib.load(MODEL_PATH)
+
         print(f"[INFO] AI Model Loaded Successful: {MODEL_PATH}")
     else:
         print(f"[ERROR] AI Model File Not Found: {MODEL_PATH}. Prediction feature will be disabled.")

@@ -41,3 +41,5 @@ yara-python==4.5.1
 scikit-learn
 joblib
 lightgbm
+xgboost
+catboost
